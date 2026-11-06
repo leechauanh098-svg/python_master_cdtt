@@ -5,7 +5,7 @@ import { FileText, RefreshCw, Search, Users } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
 import { ChartCard } from '@/components/admin-charts'
 import { RecordsTable } from '@/components/records-table'
-import { useRemoteRows, type DataRow } from '@/components/remote-data'
+import { formatCell, useRemoteRows, type DataRow } from '@/components/remote-data'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
 type PartnerTab = 'Tài trợ đồng hành' | 'Cung cấp thí sinh'
@@ -106,7 +106,7 @@ export default function PartnersPage() {
             <ChartCard title="Cơ cấu theo cấp độ" description="Tỷ trọng nhà tài trợ theo cấp." data={tiers.data} kind="pie" xKey="cap_do_tai_tro" yKey="so_luong_doanh_nghiep" height={290} />
           </div>
           <RecordsTable title="Danh sách nhà tài trợ" data={rows} loading={loading} error={error} query={search} onQueryChange={setSearch}>
-            <select aria-label="Lọc cấp độ" value={tier} onChange={(event) => setTier(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả cấp độ</option>{tiers.data.map((row) => <option key={String(row.cap_do_tai_tro)} value={String(row.cap_do_tai_tro)}>{String(row.cap_do_tai_tro)}</option>)}</select>
+            <select aria-label="Lọc cấp độ" value={tier} onChange={(event) => setTier(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả cấp độ</option>{tiers.data.map((row) => <option key={String(row.cap_do_tai_tro)} value={String(row.cap_do_tai_tro)}>{formatCell(row.cap_do_tai_tro)}</option>)}</select>
             <select aria-label="Lọc loại tài trợ" value={sponsorType} onChange={(event) => setSponsorType(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả loại</option><option value="HIEN_KIM">Hiện kim</option><option value="HIEN_VAT">Hiện vật</option></select>
           </RecordsTable>
         </>

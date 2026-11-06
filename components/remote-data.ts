@@ -197,6 +197,8 @@ const localizedValues: Record<string, string> = {
   MO: 'Mở',
   MO_DANG_KY: 'Mở',
   DANG_MO: 'Mở',
+  DONG_HANH: 'Đồng hành',
+  TAI_TRO_DONG_HANH: 'Tài trợ đồng hành',
   MOI_TAO: 'Mới tạo',
   NOI_BO: 'Nội bộ',
   QNA: 'Hỏi đáp',

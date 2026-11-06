@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
+import { ChartCard } from '@/components/admin-charts'
 import { formatCell, formatFieldLabel } from '@/components/remote-data'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
@@ -102,7 +103,7 @@ export default function PermissionPage() {
   const [logsError, setLogsError] = useState('')
   const [logSearch, setLogSearch] = useState('')
   const [logType, setLogType] = useState('all')
-  const [timeRange, setTimeRange] = useState('7')
+  const [timeRange, setTimeRange] = useState('all')
   const [logLimit, setLogLimit] = useState(100)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
@@ -197,6 +198,26 @@ export default function PermissionPage() {
       return matchesType && matchesText && matchesDate
     })
   }, [logSearch, logType, logs, timeRange])
+  const logsByKind = useMemo(() => {
+    const labels = { login: 'Đăng nhập', admin: 'Phân quyền', data: 'Hoạt động dữ liệu' }
+    const counts = new Map<string, number>()
+    for (const log of filteredLogs) {
+      const kind = actionKind(log)
+      const label = labels[kind]
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return Array.from(counts, ([loai_hoat_dong, so_luong]) => ({ loai_hoat_dong, so_luong }))
+  }, [filteredLogs])
+  const logsByDay = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const log of filteredLogs) {
+      const time = timestamp(log)
+      if (time == null) continue
+      const day = new Date(time).toISOString().slice(0, 10)
+      counts.set(day, (counts.get(day) ?? 0) + 1)
+    }
+    return Array.from(counts, ([ngay, so_luong]) => ({ ngay, so_luong })).sort((a, b) => a.ngay.localeCompare(b.ngay))
+  }, [filteredLogs])
 
   const permissionColumns = useMemo(() => {
     const labelSet = new Set(labelKeys)
@@ -269,6 +290,11 @@ export default function PermissionPage() {
           <p className="mt-2 text-2xl font-bold text-slate-900">{matrix.filter((row) => permissionColumns.some((column) => isEnabled(row[column]))).length}</p>
           <p className="mt-1 text-[10px] text-slate-400">Chức năng có ít nhất một quyền</p>
         </div>
+      </div>
+
+      <div className="mb-6 grid items-stretch gap-4 xl:grid-cols-2">
+        <ChartCard title="Hoạt động theo nhóm" description="Phân loại các bản ghi nhật ký đã tải theo bộ lọc hiện tại." data={logsByKind} kind="pie" xKey="loai_hoat_dong" yKey="so_luong" height={260} />
+        <ChartCard title="Nhật ký theo ngày" description="Số sự kiện theo ngày trong các bản ghi nhật ký đã tải." data={logsByDay} kind="line" xKey="ngay" yKey="so_luong" seriesName="Sự kiện" height={260} />
       </div>
 
       {(rolesError && !roles.length) && (

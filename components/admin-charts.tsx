@@ -57,7 +57,10 @@ export function ChartCard({
               <CartesianGrid stroke="#eef0f6" strokeDasharray="4 4" vertical={false} />
               <XAxis dataKey={xKey} tickFormatter={formatCell} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <Tooltip labelFormatter={formatCell} />
+              <Tooltip
+                labelFormatter={formatCell}
+                formatter={(value, name) => [formatCell(value), formatCell(name)]}
+              />
               <Line type="monotone" dataKey={yKey} name={seriesName} stroke="#2563eb" strokeWidth={3} dot={{ r: 3, fill: '#2563eb' }} activeDot={{ r: 5 }} />
             </LineChart>
           ) : kind === 'bar' ? (
@@ -74,7 +77,10 @@ export function ChartCard({
                   <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 </>
               )}
-              <Tooltip labelFormatter={formatCell} />
+              <Tooltip
+                labelFormatter={formatCell}
+                formatter={(value, name) => [formatCell(value), formatCell(name)]}
+              />
               <Bar dataKey={yKey} name="Số lượng" fill="#2563eb" radius={horizontal ? [0, 7, 7, 0] : [7, 7, 0, 0]} maxBarSize={38} />
             </BarChart>
           ) : (
@@ -82,7 +88,10 @@ export function ChartCard({
               <Pie data={data} dataKey={yKey} nameKey={xKey} cx="50%" cy="50%" innerRadius="54%" outerRadius="82%" paddingAngle={3}>
                 {data.map((row, index) => <Cell key={`${String(row[xKey] ?? 'segment')}-${index}`} fill={palette[index % palette.length]} />)}
               </Pie>
-              <Tooltip labelFormatter={formatCell} />
+              <Tooltip
+                labelFormatter={formatCell}
+                formatter={(value, name) => [formatCell(value), formatCell(name)]}
+              />
               <Legend formatter={formatCell} verticalAlign="bottom" height={28} wrapperStyle={{ fontSize: 10 }} />
             </PieChart>
           )}

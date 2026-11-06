@@ -26,15 +26,20 @@ import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
 const navigation = [
   {
-    title: 'TỔNG QUAN',
+    title: 'WORKSPACE',
     items: [{ label: 'Dashboard quản trị', icon: LayoutDashboard, href: '/' }],
   },
   {
-    title: 'VẬN HÀNH',
+    title: 'TUYỂN SINH & HỌC VỤ',
     items: [
       { label: 'Quản lý thí sinh', icon: Users, href: '/thi-sinh' },
       { label: 'Python Master 2026', icon: Trophy, href: '/python-master' },
       { label: 'Bài tập & bài nộp', icon: ClipboardCheck, href: '/bai-tap' },
+    ],
+  },
+  {
+    title: 'ĐỐI TÁC & TRI THỨC',
+    items: [
       { label: 'Đối tác đồng hành', icon: Package, href: '/doi-tac' },
       { label: 'Kho tài liệu RAG', icon: BookOpen, href: '/kho-tai-lieu' },
       { label: 'Lịch sử Q&A', icon: MessageSquare, href: '/qa' },
@@ -42,7 +47,7 @@ const navigation = [
     ],
   },
   {
-    title: 'BÁO CÁO & HỆ THỐNG',
+    title: 'PHÂN TÍCH & HỆ THỐNG',
     items: [
       { label: 'KPI & Báo cáo', icon: BarChart3, href: '/bao-cao' },
       { label: 'Phân quyền & Nhật ký', icon: ShieldCheck, href: '/phan-quyen' },
@@ -63,27 +68,38 @@ export function AdminShell({
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  const [authRedirecting, setAuthRedirecting] = useState(false)
   const [authError, setAuthError] = useState('')
 
   useEffect(() => {
     let active = true
-    if (!supabase) {
+
+    const redirectToLogin = () => {
+      if (!active) return
+      setAuthRedirecting(true)
       router.replace('/login')
+    }
+
+    if (!supabase) {
+      redirectToLogin()
       return () => { active = false }
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return
-      if (session) setAuthReady(true)
-      else {
-        setAuthReady(false)
-        router.replace('/login')
+      if (session) {
+        setAuthRedirecting(false)
+        setAuthReady(true)
       }
+      else redirectToLogin()
     })
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return
-      if (error || !data.session) router.replace('/login')
-      else setAuthReady(true)
+      if (error || !data.session) redirectToLogin()
+      else {
+        setAuthRedirecting(false)
+        setAuthReady(true)
+      }
     })
     return () => {
       active = false
@@ -107,11 +123,11 @@ export function AdminShell({
   }
 
   if (!authReady) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#f5f7fb] text-sm text-slate-500">Đang xác thực tài khoản…</main>
+    return <main className="flex min-h-screen items-center justify-center bg-[#f4f7fb] text-sm text-slate-500">{authRedirecting ? 'Đang chuyển đến trang đăng nhập…' : 'Đang xác thực tài khoản…'}</main>
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] text-slate-800">
+    <main className="min-h-screen bg-[#f4f7fb] text-slate-800">
       {mobileOpen && (
         <button
           className="fixed inset-0 z-20 bg-slate-950/30 lg:hidden"
@@ -127,16 +143,16 @@ export function AdminShell({
         <Menu size={20} />
       </button>
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[246px] flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-[264px] flex-col border-r border-slate-200/80 bg-white transition-transform lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-[76px] items-center gap-3 border-b border-slate-100 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200">
+        <div className="flex h-[76px] items-center gap-3 border-b border-slate-100 px-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200/70">
             <ShieldCheck size={19} />
           </div>
           <div>
-            <p className="text-[15px] font-bold tracking-tight text-slate-900">Sotauni Admin</p>
+            <p className="text-[15px] font-bold tracking-tight text-slate-900">Python Master</p>
             <p className="text-[10px] font-medium uppercase tracking-[0.17em] text-slate-400">
               Trung tâm điều hành
             </p>
@@ -152,7 +168,7 @@ export function AdminShell({
         <nav className="flex-1 overflow-y-auto px-3 py-5">
           {navigation.map((section) => (
             <div key={section.title} className="mb-6">
-              <p className="mb-2 px-3 text-[10px] font-bold tracking-[0.14em] text-slate-400">
+              <p className="mb-2 px-3 text-[9px] font-bold tracking-[0.16em] text-slate-400">
                 {section.title}
               </p>
               {section.items.map((item) => {
@@ -165,13 +181,15 @@ export function AdminShell({
                     onClick={() => setMobileOpen(false)}
                     className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] font-medium transition ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isActive ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>
+                      <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
+                    </span>
                     <span>{item.label}</span>
-                    {isActive && <ChevronRight size={14} className="ml-auto opacity-80" />}
+                    {isActive && <ChevronRight size={14} className="ml-auto text-blue-400" />}
                   </Link>
                 )
               })}
@@ -192,15 +210,15 @@ export function AdminShell({
         </div>
       </aside>
 
-      <section className="lg:pl-[246px]">
-        <header className="flex min-h-[76px] items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
+      <section className="lg:pl-[264px]">
+      <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-5 backdrop-blur-xl sm:px-8">
           <div className="pl-12 lg:pl-0">
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span>Hệ thống</span>
               <ChevronRight size={13} />
               <span className="text-slate-700">{title}</span>
             </div>
-            <h1 className="mt-1 text-lg font-bold tracking-tight text-slate-900">{title}</h1>
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">{title}</h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
@@ -216,7 +234,7 @@ export function AdminShell({
           </div>
         </header>
         {authError && <p role="alert" className="mx-5 mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 sm:mx-8">{authError}</p>}
-        <div className="p-5 sm:p-8">{children}</div>
+        <div className="mx-auto w-full max-w-[1680px] p-4 sm:p-6 xl:p-8">{children}</div>
       </section>
     </main>
   )

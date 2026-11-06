@@ -10,6 +10,14 @@ import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
 type PartnerTab = 'Tài trợ đồng hành' | 'Cung cấp thí sinh'
 
+const sponsorTiers = [
+  { value: 'KIM_CUONG', label: 'Kim cương' },
+  { value: 'VANG', label: 'Vàng' },
+  { value: 'BAC', label: 'Bạc' },
+  { value: 'DONG', label: 'Đồng' },
+  { value: 'DONG_HANH', label: 'Đồng hành' },
+]
+
 export default function PartnersPage() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [tab, setTab] = useState<PartnerTab>('Tài trợ đồng hành')
@@ -39,34 +47,47 @@ export default function PartnersPage() {
       }
       setLoading(true)
       setError('')
-      let response
-      if (tab === 'Cung cấp thí sinh') {
-        response = await supabase.from('vw_doitac_cungcap_ds').select('*')
-      } else if (search.trim()) {
-        response = await supabase.rpc('fn_doitac_taitro_tim_kiem', { p_tu_khoa: search.trim() })
-      } else if (tier || sponsorType) {
-        response = await supabase.rpc('fn_doitac_taitro_loc', {
-          p_cap_do: tier || null,
-          p_loai_tai_tro: sponsorType || null,
-        })
-      } else {
-        response = await supabase.from('vw_doitac_taitro_ds').select('*')
+      try {
+        let result: DataRow[] = []
+        if (tab === 'Cung cấp thí sinh') {
+          const { data, error: responseError } = await supabase.from('vw_doitac_cungcap_ds').select('*')
+          if (responseError) throw new Error(responseError.message)
+          result = Array.isArray(data) ? data as DataRow[] : []
+        } else {
+          let matchingIds: string[] | null = null
+          if (search.trim()) {
+            const { data, error: searchError } = await supabase.rpc('fn_doitac_taitro_tim_kiem', { p_tu_khoa: search.trim() })
+            if (searchError) throw new Error(searchError.message)
+            matchingIds = (Array.isArray(data) ? data as DataRow[] : [])
+              .map((row) => row.doanh_nghiep_id)
+              .filter((id): id is string => typeof id === 'string')
+            if (matchingIds.length === 0) {
+              if (active) setRows([])
+              return
+            }
+          }
+
+          let request = supabase.from('vw_doitac_taitro_ds').select('*')
+          if (tier) request = request.eq('cap_do_tai_tro', tier)
+          if (sponsorType) request = request.eq('loai_tai_tro', sponsorType)
+          if (matchingIds) request = request.in('doanh_nghiep_id', matchingIds)
+
+          const { data, error: responseError } = await request
+          if (responseError) throw new Error(responseError.message)
+          result = Array.isArray(data) ? data as DataRow[] : []
+        }
+        if (active) {
+          setRows(result)
+          setError('')
+        }
+      } catch (loadError) {
+        if (active) {
+          setRows([])
+          setError(loadError instanceof Error ? loadError.message : String(loadError))
+        }
+      } finally {
+        if (active) setLoading(false)
       }
-      if (!active) return
-      if (response.error) {
-        setRows([])
-        setError(response.error.message)
-      } else {
-        const result = Array.isArray(response.data) ? response.data as DataRow[] : []
-        const query = search.trim().toLocaleLowerCase('vi')
-        setRows(result.filter((row) => {
-          const matchesTier = !tier || String(row.cap_do_tai_tro ?? '') === tier
-          const matchesType = !sponsorType || String(row.loai_tai_tro ?? '') === sponsorType
-          const matchesText = !query || JSON.stringify(row).toLocaleLowerCase('vi').includes(query)
-          return matchesTier && matchesType && matchesText
-        }))
-      }
-      setLoading(false)
     }
     void load()
     return () => { active = false }
@@ -99,20 +120,30 @@ export default function PartnersPage() {
       {tab === 'Tài trợ đồng hành' ? (
         <>
           <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stats source={sponsorSummary} labels={['Tổng số doanh nghiệp tài trợ', 'Tổng tiền hiện kim (VND)', 'Tổng quy đổi hiện vật (VND)', 'Tỷ lệ hoàn thành quyền lợi (%)']} />
+            <Stats source={sponsorSummary} metrics={[
+              { label: 'Tổng số doanh nghiệp tài trợ', key: 'tong_so_doanh_nghiep_tai_tro' },
+              { label: 'Tổng tiền hiện kim (VND)', key: 'tong_tien_hien_kim_vnd' },
+              { label: 'Tổng quy đổi hiện vật (VND)', key: 'tong_quy_doi_hien_vat_vnd' },
+              { label: 'Tỷ lệ hoàn thành quyền lợi (%)', key: 'ty_le_hoan_thanh_quyen_loi_pct' },
+            ]} />
           </div>
           <div className="mb-5 grid items-stretch gap-4 xl:grid-cols-2">
             <ChartCard title="Phễu tài trợ" description="Doanh nghiệp qua từng giai đoạn hợp tác." data={pipeline.data} kind="bar" horizontal xKey="giai_doan" yKey="so_luong" height={290} />
             <ChartCard title="Cơ cấu theo cấp độ" description="Tỷ trọng nhà tài trợ theo cấp." data={tiers.data} kind="pie" xKey="cap_do_tai_tro" yKey="so_luong_doanh_nghiep" height={290} />
           </div>
-          <RecordsTable title="Danh sách nhà tài trợ" data={rows} loading={loading} error={error} query={search} onQueryChange={setSearch}>
-            <select aria-label="Lọc cấp độ" value={tier} onChange={(event) => setTier(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả cấp độ</option>{tiers.data.map((row) => <option key={String(row.cap_do_tai_tro)} value={String(row.cap_do_tai_tro)}>{formatCell(row.cap_do_tai_tro)}</option>)}</select>
+          <RecordsTable title="Danh sách nhà tài trợ" data={rows} loading={loading} error={error} query={search} onQueryChange={setSearch} emptyText={tier || sponsorType || search ? 'Không có nhà tài trợ phù hợp với các bộ lọc đã chọn.' : 'Chưa có nhà tài trợ trong danh sách.'}>
+            <select aria-label="Lọc cấp độ" value={tier} onChange={(event) => setTier(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả cấp độ</option>{sponsorTiers.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
             <select aria-label="Lọc loại tài trợ" value={sponsorType} onChange={(event) => setSponsorType(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="">Tất cả loại</option><option value="HIEN_KIM">Hiện kim</option><option value="HIEN_VAT">Hiện vật</option></select>
           </RecordsTable>
         </>
       ) : (
         <>
-          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stats source={supplySummary} labels={['Tổng số doanh nghiệp', 'Thí sinh từ doanh nghiệp', 'Lệ phí thu được (VND)', 'Hoa hồng cần chi trả (VND)']} /></div>
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stats source={supplySummary} metrics={[
+            { label: 'Tổng số doanh nghiệp', key: 'tong_so_doanh_nghiep' },
+            { label: 'Thí sinh từ doanh nghiệp', key: 'tong_thi_sinh_tu_doanh_nghiep' },
+            { label: 'Lệ phí thu được (VND)', key: 'tong_le_phi_thu_duoc' },
+            { label: 'Hoa hồng cần chi trả (VND)', key: 'tong_hoa_hong_can_chi_tra' },
+          ]} /></div>
           <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100/70">
             <div className="mb-3 flex items-center gap-2"><FileText size={16} className="text-blue-600" /><div><h2 className="text-sm font-bold text-slate-900">Hóa đơn hoa hồng</h2><p className="text-[11px] text-slate-400">Nhập mã đối tác để xem thông tin và in hóa đơn.</p></div></div>
             <div className="flex flex-wrap gap-2"><input value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} placeholder="Mã doanh nghiệp" className="h-9 min-w-[220px] rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-blue-400" /><button onClick={() => void loadInvoice()} className="h-9 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white">Tải hóa đơn</button><button onClick={() => window.print()} disabled={!invoice} className="h-9 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-600 disabled:opacity-40">In / lưu PDF</button></div>
@@ -126,13 +157,12 @@ export default function PartnersPage() {
   )
 }
 
-function Stats({ source, labels }: { source: ReturnType<typeof useRemoteRows>; labels: string[] }) {
+function Stats({ source, metrics }: { source: ReturnType<typeof useRemoteRows>; metrics: { label: string; key: string }[] }) {
   const row = source.data[0]
-  const values = row ? Object.entries(row) : []
   const icons = [Users, FileText, FileText, FileText]
   const colors = ['bg-blue-50 text-blue-600', 'bg-emerald-50 text-emerald-600', 'bg-sky-50 text-sky-600', 'bg-amber-50 text-amber-600']
-  return <>{labels.map((label, index) => {
+  return <>{metrics.map(({ label, key }, index) => {
     const Icon = icons[index % icons.length]
-    return <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><p className="text-[10px] text-slate-500">{label}</p><span className={`rounded-lg p-2 ${colors[index % colors.length]}`}><Icon size={14} /></span></div>{source.loading ? <div className="mt-3 h-6 animate-pulse rounded bg-slate-100" /> : source.error ? <p className="mt-2 text-[10px] text-rose-600">Lỗi tải dữ liệu</p> : <p className="mt-2 text-xl font-bold text-slate-900">{new Intl.NumberFormat('vi-VN').format(Number(values[index]?.[1] ?? 0))}</p>}<p className="mt-1 text-[9px] text-slate-400">Theo dữ liệu Supabase</p></article>
+    return <article key={key} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><p className="text-[10px] text-slate-500">{label}</p><span className={`rounded-lg p-2 ${colors[index % colors.length]}`}><Icon size={14} /></span></div>{source.loading ? <div className="mt-3 h-6 animate-pulse rounded bg-slate-100" /> : source.error ? <p className="mt-2 text-[10px] text-rose-600">Lỗi tải dữ liệu</p> : <p className="mt-2 text-xl font-bold text-slate-900">{new Intl.NumberFormat('vi-VN').format(Number(row?.[key] ?? 0))}</p>}<p className="mt-1 text-[9px] text-slate-400">Theo dữ liệu Supabase</p></article>
   })}</>
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { RefreshCw, Trophy } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
+import { ChartCard } from '@/components/admin-charts'
 import { RecordsTable } from '@/components/records-table'
 import { useRemoteRows, type DataRow } from '@/components/remote-data'
 
@@ -13,6 +14,18 @@ export default function PythonMasterPage() {
   const ranking = useRemoteRows({ kind: 'view', name: 'vw_pm_bxh_tam_thoi' }, refresh)
   const topQualifiers = useRemoteRows({ kind: 'view', name: 'vw_pm_top_vong_loai' }, refresh)
   const top56 = useMemo(() => topQualifiers.data.filter((row) => Number(row.hang_toan_quoc ?? 999999) <= 56), [topQualifiers.data])
+  const topRanked = useMemo(() => ranking.data
+    .filter((row) => row.ho_ten != null && row.tong_diem != null && Number.isFinite(Number(row.tong_diem)))
+    .sort((a, b) => Number(b.tong_diem) - Number(a.tong_diem))
+    .slice(0, 10), [ranking.data])
+  const roundsByStatus = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const round of rounds.data) {
+      const status = String(round.trang_thai ?? '').trim()
+      if (status) counts.set(status, (counts.get(status) ?? 0) + 1)
+    }
+    return Array.from(counts, ([trang_thai, so_luong]) => ({ trang_thai, so_luong }))
+  }, [rounds.data])
   const summaryRow = summary.data[0]
 
   const metrics = [
@@ -26,6 +39,10 @@ export default function PythonMasterPage() {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><p className="text-sm text-slate-500">Tổng quan cuộc thi, các vòng thi và bảng xếp hạng.</p><button onClick={() => setRefresh((value) => value + 1)} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600"><RefreshCw size={14} /> Làm mới</button></div>
       <div className="mb-5 grid gap-3 md:grid-cols-3">
         {metrics.map(([label, key, tone]) => <article key={key} className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">{label}</p><span className={`rounded-lg p-2 ${tone}`}><Trophy size={15} /></span></div><p className="mt-3 text-2xl font-bold text-slate-900">{summary.loading ? '…' : summary.error ? '—' : new Intl.NumberFormat('vi-VN').format(Number(summaryRow?.[key] ?? 0))}{key === 'tong_doanh_thu_cuoc_thi_vnd' ? ' ₫' : ''}</p>{summary.error && <p className="mt-1 text-[10px] text-rose-600">{summary.error}</p>}</article>)}
+      </div>
+      <div className="mb-5 grid items-stretch gap-4 xl:grid-cols-2">
+        <ChartCard title="Trạng thái các vòng thi" description="Cơ cấu vòng thi theo trạng thái trong dữ liệu cuộc thi." data={roundsByStatus} kind="pie" xKey="trang_thai" yKey="so_luong" height={280} />
+        <ChartCard title="Top 10 theo tổng điểm" description="Xếp hạng từ bảng xếp hạng tạm thời; chỉ hiển thị thí sinh có điểm." data={topRanked} kind="bar" horizontal xKey="ho_ten" yKey="tong_diem" seriesName="Tổng điểm" height={280} />
       </div>
       <div className="mb-5">
         <RecordsTable title="Danh sách vòng thi" data={rounds.data} loading={rounds.loading} error={rounds.error} columns={['ten_cuoc_thi', 'bang_dau', 'han_dang_ky', 'ngay_bat_dau', 'ngay_ket_thuc', 'trang_thai']} />

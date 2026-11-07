@@ -9,7 +9,6 @@ import {
   BarChart3,
   BookOpen,
   ChevronRight,
-  ClipboardCheck,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -34,7 +33,6 @@ const navigation = [
     items: [
       { label: 'Quản lý thí sinh', icon: Users, href: '/thi-sinh' },
       { label: 'Python Master 2026', icon: Trophy, href: '/python-master' },
-      { label: 'Bài tập & bài nộp', icon: ClipboardCheck, href: '/bai-tap' },
     ],
   },
   {

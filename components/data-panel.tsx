@@ -5,6 +5,16 @@ import { formatCell, formatFieldLabel, formatTableCell } from '@/components/remo
 export type DisplayRow = Record<string, unknown>
 export type Visualization = 'metrics' | 'table' | 'bar' | 'bar-horizontal' | 'bar-table' | 'line' | 'area' | 'funnel' | 'pie'
 
+const chartTitleCaseLabels: Record<string, string> = {
+  'BỊ LOẠI': 'Bị loại',
+  'CHỜ HỒ SƠ': 'Chờ hồ sơ',
+  'HOÀN THÀNH': 'Hoàn thành',
+  'ĐANG XÉT DUYỆT': 'Đang xét duyệt',
+  'ĐÃ ĐÓNG PHÍ': 'Đã đóng phí',
+  FACEBOOK: 'Facebook',
+  INSTAGRAM: 'Instagram',
+}
+
 function isRecord(value: unknown): value is DisplayRow {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -21,6 +31,11 @@ function rowsFrom(value: unknown): DisplayRow[] {
 
 function formatValue(value: unknown): string {
   return formatCell(value)
+}
+
+function formatChartLabel(value: unknown): string {
+  const formatted = formatValue(value)
+  return chartTitleCaseLabels[formatted.trim().toLocaleUpperCase('vi')] ?? formatted
 }
 
 function MetricGrid({ rows }: { rows: DisplayRow[] }) {
@@ -98,14 +113,14 @@ function ChartView({
     const primaryLabel = labelEntry && labelKey?.toLowerCase() === 'ngay' && typeof rawLabel === 'string'
       ? (() => {
         const date = rawLabel.match(/^(\d{4})-(\d{2})-(\d{2})/)
-        return date ? `${date[3]}/${date[2]}` : formatValue(rawLabel)
+        return date ? `${date[3]}/${date[2]}` : formatChartLabel(rawLabel)
       })()
-      : labelEntry ? formatValue(rawLabel) : `Bước ${index + 1}`
+      : labelEntry ? formatChartLabel(rawLabel) : `Bước ${index + 1}`
     const secondaryLabel = secondaryLabelField ? row[secondaryLabelField] : undefined
     return {
       label: secondaryLabel == null || secondaryLabel === ''
         ? primaryLabel
-        : `${primaryLabel} · ${formatValue(secondaryLabel)}`,
+        : `${primaryLabel} · ${formatChartLabel(secondaryLabel)}`,
       value: valueKey && typeof row[valueKey] === 'number' ? row[valueKey] : undefined,
       row,
     }
@@ -121,7 +136,7 @@ function ChartView({
         && typeof entry.row[field] === 'string'
         && entry.row[field] !== '')
     return contextField
-      ? { ...entry, label: `${entry.label} · ${formatValue(entry.row[contextField])}` }
+      ? { ...entry, label: `${entry.label} · ${formatChartLabel(entry.row[contextField])}` }
       : entry
   })
   const maxValue = Math.max(...entries.map((entry) => entry.value ?? 0), 1)

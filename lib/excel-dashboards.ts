@@ -193,7 +193,6 @@ function dashboardMetrics(
         pointColors: progressRows.map((row) => (numberValue(row.hoan_thanh_pct) ?? 0) >= 100 ? '#16A34A' : '#F97316'),
         chartType: 'bar',
       },
-      { name: 'Mục tiêu 100%', values: progressRows.map(() => 100), color: '#64748B', chartType: 'line' },
     ], 'combo', { direction: 'bar', grouping: 'clustered', showValues: true })
     addChart('overview_progress', progress)
     const leads = rowsFor(datasets, 'lead_pipeline')

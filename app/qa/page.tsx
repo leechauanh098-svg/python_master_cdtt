@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bot, MessageSquare, RefreshCw, Send, UserRound } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
-import { ChartCard } from '@/components/admin-charts'
 import { formatCell, useRemoteRows, type DataRow } from '@/components/remote-data'
 
 export default function ConversationPage() {
@@ -99,31 +98,9 @@ export default function ConversationPage() {
     setSending(false)
   }
 
-  const otherConversations = useMemo(() => conversations.filter((row) => row.qna_id !== selected?.qna_id), [conversations, selected?.qna_id])
-  const conversationsByStatus = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const conversation of conversations) {
-      const status = String(conversation.trang_thai ?? 'Chưa xác định')
-      counts.set(status, (counts.get(status) ?? 0) + 1)
-    }
-    return Array.from(counts, ([trang_thai, so_luong]) => ({ trang_thai, so_luong }))
-  }, [conversations])
-  const conversationsByEntity = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const conversation of conversations) {
-      const entity = String(conversation.loai_doi_tuong ?? 'Chưa phân loại')
-      counts.set(entity, (counts.get(entity) ?? 0) + 1)
-    }
-    return Array.from(counts, ([loai_doi_tuong, so_luong]) => ({ loai_doi_tuong, so_luong }))
-  }, [conversations])
-
   return (
     <AdminShell active="Lịch sử Q&A" title="Lịch sử Q&A">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><p className="text-sm text-slate-500">Tìm kiếm và phản hồi trao đổi với thí sinh, doanh nghiệp.</p><button onClick={() => setRefresh((value) => value + 1)} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600"><RefreshCw size={14} /> Làm mới</button></div>
-      <div className="mb-5 grid items-stretch gap-4 xl:grid-cols-2">
-        <ChartCard title="Hội thoại theo trạng thái" description="Cơ cấu trạng thái trong kết quả truy vấn hiện tại." data={conversationsByStatus} kind="pie" xKey="trang_thai" yKey="so_luong" height={260} />
-        <ChartCard title="Hội thoại theo nhóm đối tượng" description="So sánh lượng trao đổi từ thí sinh và doanh nghiệp trong kết quả hiện tại." data={conversationsByEntity} kind="bar" xKey="loai_doi_tuong" yKey="so_luong" height={260} />
-      </div>
       <div className="grid min-h-[650px] gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.8fr)]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-100/70">
           <div className="border-b border-slate-100 p-4"><h2 className="text-sm font-bold text-slate-900">Danh sách hội thoại</h2><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo tên đối tượng…" className="mt-3 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-blue-400" /></div>
@@ -145,7 +122,6 @@ export default function ConversationPage() {
           </div>
         </section>
       </div>
-      <div className="sr-only" aria-hidden="true">{otherConversations.length} hội thoại khác</div>
     </AdminShell>
   )
 }

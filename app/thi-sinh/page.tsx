@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Eye, Filter, RefreshCw, Search, X } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
-import { ChartCard } from '@/components/admin-charts'
 import { RecordsTable } from '@/components/records-table'
-import { formatCell, formatFieldLabel, formatTableCell, useRemoteRows, type DataRow } from '@/components/remote-data'
+import { formatCell, formatFieldLabel, formatTableCell, type DataRow } from '@/components/remote-data'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
 function csvEscape(value: unknown): string {
@@ -14,8 +13,6 @@ function csvEscape(value: unknown): string {
 
 export default function StudentsPage() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
-  const statusChart = useRemoteRows({ kind: 'view', name: 'vw_thisinh_bieudo_trangthai' })
-  const schoolChart = useRemoteRows({ kind: 'view', name: 'vw_thisinh_bieudo_theo_truong' })
   const [rows, setRows] = useState<DataRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -28,7 +25,6 @@ export default function StudentsPage() {
   const [detailError, setDetailError] = useState('')
   const [refresh, setRefresh] = useState(0)
   const pageSize = 15
-  const schoolTop = useMemo(() => [...schoolChart.data].sort((a, b) => Number(b.so_luong_thi_sinh ?? 0) - Number(a.so_luong_thi_sinh ?? 0)).slice(0, 10), [schoolChart.data])
 
   useEffect(() => {
     let active = true
@@ -118,7 +114,6 @@ export default function StudentsPage() {
   const pageRows = rows.slice((page - 1) * pageSize, page * pageSize)
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
   const tableColumns = ['thi_sinh_id', 'ho_ten', 'email', 'sdt', 'nam_sinh', 'truong_hoc', 'trang_thai_ho_so', 'bang_dau', 'ten_sale_phu_trach']
-  const chartApplicantCount = statusChart.data.reduce((total, row) => total + Number(row.so_luong ?? 0), 0)
 
   return (
     <AdminShell active="Quản lý thí sinh" title="Quản lý thí sinh">
@@ -128,11 +123,6 @@ export default function StudentsPage() {
           <button onClick={() => setRefresh((value) => value + 1)} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600"><RefreshCw size={14} /> Làm mới</button>
           <button onClick={() => void exportRows()} className="flex h-9 items-center gap-2 rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white"><Download size={14} /> Xuất CSV</button>
         </div>
-      </div>
-
-      <div className="mb-5 grid gap-4 xl:grid-cols-2">
-        {statusChart.error ? <ChartError title="Trạng thái hồ sơ" error={statusChart.error} /> : <ChartCard title="Trạng thái hồ sơ" description="Số lượng và tỷ lệ theo trạng thái xét duyệt." data={statusChart.data} kind="bar" horizontal xKey="trang_thai" yKey="so_luong" height={280} />}
-        {schoolChart.error ? <ChartError title="Thí sinh theo trường" error={schoolChart.error} /> : <ChartCard title="Top 10 trường có nhiều thí sinh" description="Xếp hạng theo số lượng thí sinh." data={schoolTop} kind="bar" horizontal xKey="truong_hoc" yKey="so_luong_thi_sinh" height={280} />}
       </div>
 
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100/70">
@@ -149,11 +139,6 @@ export default function StudentsPage() {
         </div>
       </section>
 
-      {!loading && !error && !rows.length && chartApplicantCount > 0 && (
-        <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          Biểu đồ có {chartApplicantCount.toLocaleString('vi-VN')} thí sinh nhưng RPC danh sách chưa trả bản ghi. Hãy áp dụng migration <code>20261106000300_applicant_read_rpc_access.sql</code> trong Supabase SQL Editor.
-        </p>
-      )}
       <RecordsTable title="Danh sách thí sinh" data={pageRows} loading={loading} error={error} columns={tableColumns} onRowClick={openDetail} emptyText="Không tìm thấy thí sinh phù hợp.">
         <span className="mr-2 text-[10px] text-slate-400">Trang {page}/{totalPages}</span>
         <button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="h-8 rounded-lg border px-3 text-xs disabled:opacity-40">Trước</button>
@@ -165,7 +150,6 @@ export default function StudentsPage() {
           <section role="dialog" aria-modal="true" aria-labelledby="student-detail-title" className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between"><div><h2 id="student-detail-title" className="text-base font-bold text-slate-900">Chi tiết thí sinh</h2><p className="mt-1 text-[11px] text-slate-400">{String(selected.thi_sinh_id ?? selected.id ?? '')}</p></div><button onClick={() => { setSelected(null); setDetail(null) }} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={17} /></button></div>
             {detailLoading ? <p className="py-10 text-center text-xs text-slate-500">Đang tải chi tiết…</p> : detailError ? <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">Không tải được chi tiết: {detailError}</p> : detail && <div className="grid gap-3 sm:grid-cols-2">{Object.entries(detail).map(([key, value]) => <div key={key} className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-400">{formatFieldLabel(key)}</p><p className="mt-1 break-words text-xs font-medium text-slate-800">{formatTableCell(value, key)}</p></div>)}</div>}
-            <p className="mt-4 text-[10px] leading-5 text-amber-700">RPC chi tiết được cấp quyền đọc công khai. Hãy giới hạn RLS/quyền Supabase trước khi dùng với dữ liệu thật.</p>
           </section>
         </div>
       )}
@@ -179,8 +163,4 @@ function FilterInput({ label, value, onChange, type = 'text' }: { label: string;
 
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
   return <label className="block"><span className="mb-1.5 block text-[10px] font-medium text-slate-500">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none">{options.map((option) => <option key={option} value={option}>{formatCell(option)}</option>)}</select></label>
-}
-
-function ChartError({ title, error }: { title: string; error: string }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-bold text-slate-900">{title}</h2><p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-xs text-rose-700">Không tải được dữ liệu: {error}</p></section>
 }

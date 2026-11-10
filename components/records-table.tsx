@@ -36,32 +36,32 @@ export function RecordsTable({
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100/70">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-          <p className="mt-1 text-[11px] text-slate-400">{visible.length.toLocaleString('vi-VN')} bản ghi</p>
+          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{visible.length.toLocaleString('vi-VN')} bản ghi</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {onQueryChange && (
             <label className="relative">
               <span className="sr-only">Tìm kiếm</span>
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Tìm kiếm…" className="h-9 w-48 rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-blue-400" />
+              <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Tìm kiếm…" className="h-10 w-56 rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-blue-400" />
             </label>
           )}
           {children}
         </div>
       </div>
       {error ? (
-        <p role="alert" className="rounded-xl bg-rose-50 p-4 text-xs leading-5 text-rose-700">Không tải được dữ liệu: {error}</p>
+        <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm leading-6 text-rose-700">Không tải được dữ liệu: {error}</p>
       ) : loading ? (
-        <p className="rounded-xl bg-slate-50 p-8 text-center text-xs text-slate-500">Đang tải dữ liệu…</p>
+        <p className="rounded-xl bg-slate-50 p-8 text-center text-sm text-slate-600">Đang tải dữ liệu…</p>
       ) : !visible.length ? (
-        <p className="rounded-xl bg-slate-50 p-8 text-center text-xs text-slate-500">{emptyText}</p>
+        <p className="rounded-xl bg-slate-50 p-8 text-center text-sm text-slate-600">{emptyText}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left text-xs">
+        <div className="max-h-[70vh] overflow-auto rounded-lg">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
-                {fields.map((field) => <th key={field} className="whitespace-nowrap px-3 py-3 font-semibold">{formatFieldLabel(field)}</th>)}
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs tracking-wide text-slate-600">
+                {fields.map((field) => <th key={field} className="sticky top-0 z-10 whitespace-nowrap bg-slate-50 px-4 py-3 font-semibold">{formatFieldLabel(field)}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -69,9 +69,9 @@ export function RecordsTable({
                 <tr
                   key={`${String(row.id ?? row.thi_sinh_id ?? row.doanh_nghiep_id ?? row.bai_nop_id ?? row.tai_lieu_id ?? row.faq_id ?? row.qna_id ?? 'row')}-${index}`}
                   onClick={() => onRowClick?.(row)}
-                  className={`border-b border-slate-50 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-blue-50/50' : ''}`}
+                  className={`border-b border-slate-100 last:border-0 even:bg-slate-50/60 ${onRowClick ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                 >
-                  {fields.map((field) => <td key={field} className="max-w-[280px] whitespace-pre-line break-words px-3 py-3 text-slate-600">{formatTableCell(row[field], field)}</td>)}
+                  {fields.map((field) => <td key={field} className="max-w-[320px] whitespace-pre-line break-words px-4 py-3.5 text-slate-700">{formatTableCell(row[field], field)}</td>)}
                 </tr>
               ))}
             </tbody>

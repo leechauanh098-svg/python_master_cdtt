@@ -5,11 +5,16 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
+function getPostLoginPath() {
+  const next = new URLSearchParams(window.location.search).get('next')
+  return next?.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/'
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
-  const [email, setEmail] = useState('admin@gmail.com')
-  const [password, setPassword] = useState('111111')
+  const [email, setEmail] = useState('nguyen.minhanh@sotatek.com')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,7 +23,7 @@ export default function LoginPage() {
     if (!supabase) return
     let active = true
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {
-      if (active && !sessionError && data.session) router.replace('/')
+      if (active && !sessionError && data.session) router.replace(getPostLoginPath())
     })
     return () => { active = false }
   }, [router, supabase])
@@ -42,7 +47,7 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      router.replace('/')
+      router.replace(getPostLoginPath())
       router.refresh()
     } catch (signInError) {
       setError(`Không kết nối được dịch vụ đăng nhập: ${signInError instanceof Error ? signInError.message : String(signInError)}`)
@@ -51,9 +56,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f3f7fc] px-5 py-10 text-slate-800">
-      <div className="grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,76,129,.12)] lg:grid-cols-[.95fr_1.05fr]">
-        <section className="relative hidden overflow-hidden bg-[#1261a0] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-10 text-slate-800">
+      <div className="grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(37,99,235,.12)] lg:grid-cols-[.95fr_1.05fr]">
+        <section className="relative hidden overflow-hidden bg-gradient-to-br from-blue-700 to-indigo-700 p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[40px] border-white/10" />
           <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full border-[50px] border-white/10" />
           <div className="relative">
@@ -77,15 +82,15 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="mx-auto max-w-[360px]">
-            <p className="text-[11px] font-bold uppercase tracking-[.18em] text-blue-600">DÀNH CHO QUẢN TRỊ VIÊN</p>
+            <p className="text-[11px] font-bold uppercase tracking-[.18em] text-blue-600">DÀNH CHO THÀNH VIÊN ĐƯỢC CẤP TÀI KHOẢN</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">Đăng nhập</h2>
-            <p className="mt-2 text-sm text-slate-500">Dùng email và mật khẩu tài khoản quản trị đã được cấp.</p>
+            <p className="mt-2 text-sm text-slate-500">Dùng email và mật khẩu tài khoản đã được quản trị viên cấp.</p>
             <form className="mt-8 space-y-5" onSubmit={(event) => void signIn(event)}>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-slate-700">Email quản trị</span>
+                <span className="mb-2 block text-xs font-semibold text-slate-700">Email tài khoản</span>
                 <div className="relative">
                   <UserRound size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input required type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Nhập email quản trị" className="h-12 w-full rounded-xl border border-slate-200 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-50" />
+                  <input required type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Nhập email tài khoản" className="h-12 w-full rounded-xl border border-slate-200 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-50" />
                 </div>
               </label>
               <label className="block">

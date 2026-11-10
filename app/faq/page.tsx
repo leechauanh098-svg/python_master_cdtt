@@ -3,14 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, FolderTree, RefreshCw, Search, Star } from 'lucide-react'
 import { AdminShell } from '@/components/admin-shell'
-import { ChartCard } from '@/components/admin-charts'
 import { RecordsTable } from '@/components/records-table'
 import { formatCell, useRemoteRows, type DataRow } from '@/components/remote-data'
 
 export default function FAQPage() {
   const tree = useRemoteRows({ kind: 'view', name: 'vw_faq_cay_danhmuc' })
-  const summary = useRemoteRows({ kind: 'view', name: 'vw_faq_tongquan' })
-  const supabase = summary.client
+  const supabase = tree.client
   const [categoryId, setCategoryId] = useState('')
   const [search, setSearch] = useState('')
   const [faqs, setFaqs] = useState<DataRow[]>([])
@@ -96,35 +94,11 @@ export default function FAQPage() {
     if (!rateError) setRefresh((value) => value + 1)
   }
 
-  const metricCards = [
-    { label: 'Tổng câu hỏi đã duyệt', key: 'tong_cau_hoi', suffix: '' },
-    { label: 'Lượt xem tích lũy', key: 'luot_xem_tich_luy', suffix: '' },
-    { label: 'Tỷ lệ hữu ích', key: 'tyle_huu_ich_pt', suffix: '%' },
-  ]
   const categories = useMemo(() => [...tree.data].sort((a, b) => Number(a.cap ?? 0) - Number(b.cap ?? 0)), [tree.data])
-  const topCategories = useMemo(() => categories
-    .filter((row) => row.ten_danh_muc != null && Number.isFinite(Number(row.so_cau_hoi)))
-    .sort((a, b) => Number(b.so_cau_hoi) - Number(a.so_cau_hoi))
-    .slice(0, 8), [categories])
-  const faqsByStatus = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const faq of faqs) {
-      const status = String(faq.trang_thai ?? 'Chưa xác định')
-      counts.set(status, (counts.get(status) ?? 0) + 1)
-    }
-    return Array.from(counts, ([trang_thai, so_luong]) => ({ trang_thai, so_luong }))
-  }, [faqs])
 
   return (
     <AdminShell active="Quản lý FAQ" title="Quản lý FAQ">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><p className="text-sm text-slate-500">Quản lý câu hỏi thường gặp và danh mục nội dung.</p><button onClick={() => setRefresh((value) => value + 1)} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600"><RefreshCw size={14} /> Làm mới</button></div>
-      <div className="mb-5 grid gap-3 md:grid-cols-3">
-        {metricCards.map(({ label, key, suffix }) => <article key={key} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><p className="text-[10px] text-slate-500">{label}</p><span className="rounded-lg bg-blue-50 p-2 text-blue-600"><FolderTree size={14} /></span></div><p className="mt-3 text-2xl font-bold text-slate-900">{summary.loading ? '…' : summary.error ? '—' : formatCell(summary.data[0]?.[key])}{summary.data[0]?.[key] != null ? suffix : ''}</p>{summary.error && <p className="mt-1 text-[10px] text-rose-600">{summary.error}</p>}</article>)}
-      </div>
-      <div className="mb-5 grid items-stretch gap-4 xl:grid-cols-2">
-        <ChartCard title="Câu hỏi theo danh mục" description="Top danh mục theo số câu hỏi trong cây nội dung." data={topCategories} kind="bar" horizontal xKey="ten_danh_muc" yKey="so_cau_hoi" seriesName="Câu hỏi" height={280} />
-        <ChartCard title="Trạng thái FAQ" description="Cơ cấu trạng thái trong danh sách hiện tại." data={faqsByStatus} kind="pie" xKey="trang_thai" yKey="so_luong" height={280} />
-      </div>
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(240px,0.65fr)_minmax(0,1.8fr)]">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100/70">
           <div className="mb-4 flex items-center gap-2"><FolderTree size={16} className="text-blue-600" /><div><h2 className="text-sm font-bold text-slate-900">Cây danh mục</h2><p className="text-[11px] text-slate-400">Chọn danh mục để lọc FAQ.</p></div></div>

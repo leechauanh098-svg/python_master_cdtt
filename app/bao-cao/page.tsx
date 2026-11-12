@@ -363,7 +363,6 @@ function ReportContent() {
   const [requestNumber, setRequestNumber] = useState(0)
   const [exportFormat, setExportFormat] = useState<'excel' | 'word' | 'pdf' | 'csv'>('excel')
   const [exportError, setExportError] = useState('')
-  const [schoolExportLoading, setSchoolExportLoading] = useState(false)
   const tabs = Object.keys(reportSections) as ReportTab[]
   const options = useMemo(quarterOptions, [])
   const allowedTabs = tabs.filter((tab) => reportAccess.permissions.includes(reportSections[tab].permission))
@@ -446,49 +445,6 @@ function ReportContent() {
     link.download = `bao-cao-${period}-${currentReportTab.toLocaleLowerCase('vi').replaceAll(' ', '-')}.${extension}`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
-  async function exportSchoolReconciliation() {
-    if (!supabase) {
-      setExportError('Chưa cấu hình kết nối Supabase.')
-      return
-    }
-
-    setSchoolExportLoading(true)
-    setExportError('')
-    try {
-      const { data, error } = await supabase.rpc('fn_export_school_reconciliation', { p_ky: period })
-      if (error) throw new Error(error.message)
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        throw new Error('Dữ liệu đối soát trường học không đúng định dạng.')
-      }
-
-      const sheets = data as Record<string, unknown>
-      const definitions = [
-        { key: 'truong_hoc', name: 'Tong hop truong' },
-        { key: 'thi_sinh', name: 'Thi sinh' },
-        { key: 'doi_soat_phi', name: 'Doi soat phi' },
-      ]
-      const workbook = XLSX.utils.book_new()
-      for (const sheet of definitions) {
-        const rows = exportRows(sheets[sheet.key])
-        const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
-        const worksheet = XLSX.utils.aoa_to_sheet([
-          columns.map(formatFieldLabel),
-          ...rows.map((row) => columns.map((column) => exportValue(row[column] ?? null, column))),
-        ])
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name)
-      }
-      const output = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
-      downloadFile(
-        new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        'xlsx',
-      )
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setSchoolExportLoading(false)
-    }
   }
 
   async function exportReport() {
@@ -958,18 +914,6 @@ function ReportContent() {
             {exportFormat === 'csv' && <Download size={14} />}
             Xuất
           </button>
-          {selectedTab === 'Thí sinh'
-            && reportAccess.permissions.includes('BAO_CAO_DOANH_THU')
-            && (
-              <button
-                onClick={() => void exportSchoolReconciliation()}
-                disabled={schoolExportLoading}
-                className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-              >
-                <FileSpreadsheet size={14} />
-                {schoolExportLoading ? 'Đang tạo đối soát…' : 'Đối soát trường'}
-              </button>
-            )}
           <label className="sr-only" htmlFor="report-export-format">Định dạng xuất báo cáo</label>
           <select
             id="report-export-format"

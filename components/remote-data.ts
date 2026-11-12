@@ -470,6 +470,7 @@ export function formatCell(value: unknown): string {
 }
 
 export function formatTableCell(value: unknown, field?: string): string {
+  const isStatusField = field != null && (/status/i.test(field) || /(?:^|_)(?:trang_thai|tinh_trang)(?:_|$)/i.test(field))
   if (field?.toLowerCase() === 'nam_sinh' && (typeof value === 'number' || typeof value === 'string') && /^\d{4}$/.test(String(value))) {
     return String(value)
   }
@@ -479,7 +480,10 @@ export function formatTableCell(value: unknown, field?: string): string {
     return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('vi-VN', { timeZone: 'UTC' })
   }
   if (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(value)) {
-    return formatCell(value)
+    const formatted = formatCell(value)
+    if (!isStatusField || formatted !== formatted.toLocaleUpperCase('vi')) return formatted
+    const lowercase = formatted.toLocaleLowerCase('vi')
+    return lowercase.charAt(0).toLocaleUpperCase('vi') + lowercase.slice(1)
   }
   const dateTime = new Date(value)
   if (Number.isNaN(dateTime.getTime())) return formatCell(value)

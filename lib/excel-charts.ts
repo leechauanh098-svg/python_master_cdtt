@@ -259,8 +259,9 @@ function chartXml(title: string, data: ChartData): string {
     <c:catAx><c:axId val="48650112"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:txPr><a:bodyPr rot="-2700000"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="vi-VN"/></a:p></c:txPr><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:tickLblSkip val="${data.type === 'line' ? 2 : 1}"/></c:catAx>
     <c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>`
 
+  const axesWithoutGridlines = axes.replaceAll('<c:majorGridlines/>', '')
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<c:chartSpace xmlns:c="${chartNamespace}" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${officeRelationshipNamespace}"><c:lang val="vi-VN"/><c:chart>${chartTitle(title)}<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>${plot}${axes}</c:plotArea>${data.type === 'funnel' || data.type === 'gantt' ? '' : `<c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend>`}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart></c:chartSpace>`
+<c:chartSpace xmlns:c="${chartNamespace}" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${officeRelationshipNamespace}"><c:lang val="vi-VN"/><c:chart>${chartTitle(title)}<c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>${plot}${axesWithoutGridlines}</c:plotArea>${data.type === 'funnel' || data.type === 'gantt' ? '' : `<c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend>`}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart></c:chartSpace>`
 }
 
 type DrawingChart = {

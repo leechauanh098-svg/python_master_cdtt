@@ -1,4 +1,4 @@
-import { formatCell } from '@/components/remote-data'
+import { formatCell, formatTableCell } from '@/components/remote-data'
 
 export type DashboardDataset = {
   reportId: string
@@ -93,7 +93,7 @@ function rowsChart(
   options: Pick<DashboardChart, 'direction' | 'grouping' | 'showValues' | 'showPercent' | 'axisMin' | 'axisMax'> = {},
 ): DashboardChart | null {
   const usable = rows.filter((row) => row[categoryKey] != null && String(row[categoryKey]).trim() !== '')
-  const categories = usable.map((row) => formatCell(row[categoryKey]))
+  const categories = usable.map((row) => formatTableCell(row[categoryKey], categoryKey))
   const series = valueKeys.map(({ key, name }) => ({
     name,
     values: usable.map((row) => numberValue(row[key])),
@@ -109,12 +109,12 @@ function groupedChart(
   valueKey: string,
   options: Pick<DashboardChart, 'direction' | 'grouping' | 'showValues' | 'showPercent'> = {},
 ): DashboardChart | null {
-  const categories = Array.from(new Set(rows.map((row) => formatCell(row[categoryKey])).filter((value) => value !== '—')))
-  const seriesNames = Array.from(new Set(rows.map((row) => formatCell(row[seriesKey])).filter((value) => value !== '—')))
+  const categories = Array.from(new Set(rows.map((row) => formatTableCell(row[categoryKey], categoryKey)).filter((value) => value !== '—')))
+  const seriesNames = Array.from(new Set(rows.map((row) => formatTableCell(row[seriesKey], seriesKey)).filter((value) => value !== '—')))
   const values = new Map<string, number>()
   rows.forEach((row) => {
-    const category = formatCell(row[categoryKey])
-    const seriesName = formatCell(row[seriesKey])
+    const category = formatTableCell(row[categoryKey], categoryKey)
+    const seriesName = formatTableCell(row[seriesKey], seriesKey)
     const value = valueKey === '__count__' ? 1 : numberValue(row[valueKey])
     if (value == null) return
     const key = `${seriesName}\u0000${category}`

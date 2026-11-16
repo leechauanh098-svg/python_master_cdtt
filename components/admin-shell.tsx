@@ -48,7 +48,8 @@ const navigation = [
   {
     title: 'PHÂN TÍCH & HỆ THỐNG',
     items: [
-      { label: 'KPI & Báo cáo', icon: BarChart3, href: '/bao-cao' },
+      { label: 'KPI', icon: BarChart3, href: '/kpi' },
+      { label: 'Báo cáo', icon: BarChart3, href: '/bao-cao' },
       { label: 'Quản lý phân quyền', icon: ShieldCheck, href: '/phan-quyen' },
     ],
   },
@@ -112,17 +113,24 @@ export function AdminShell({
     if (!authReady || !supabase) return () => { active = false }
 
     setReportAccess(emptyReportAccess)
-    void supabase.rpc('fn_current_user_report_permissions').then(({ data, error }) => {
+    void Promise.allSettled([
+      supabase.rpc('fn_current_user_report_permissions'),
+      supabase.rpc('fn_current_user_can_view_kpi_dashboard'),
+    ]).then(([permissionsCall, kpiAccessCall]) => {
       if (!active) return
-      if (error) {
+      if (permissionsCall.status === 'rejected' || (permissionsCall.status === 'fulfilled' && permissionsCall.value.error)) {
+        const error = permissionsCall.status === 'rejected'
+          ? permissionsCall.reason
+          : permissionsCall.value.error
         setReportAccess({
           ...emptyReportAccess,
           loading: false,
-          error: `Không xác định được quyền báo cáo: ${error.message}`,
+          error: `Không xác định được quyền báo cáo: ${error instanceof Error ? error.message : String(error)}`,
         })
         return
       }
 
+      const { data } = permissionsCall.value
       const rows = Array.isArray(data) ? data as Record<string, unknown>[] : []
       const firstRow = rows[0]
       const roleIds = Array.from(new Set(rows.flatMap((row) =>
@@ -142,13 +150,14 @@ export function AdminShell({
         roleIds,
         roleNames,
         permissions,
-      })
-    }, (error: unknown) => {
-      if (!active) return
-      setReportAccess({
-        ...emptyReportAccess,
-        loading: false,
-        error: `Không xác định được quyền báo cáo: ${error instanceof Error ? error.message : String(error)}`,
+        canViewKpi: kpiAccessCall.status === 'fulfilled'
+          && !kpiAccessCall.value.error
+          && kpiAccessCall.value.data === true,
+        kpiAccessError: kpiAccessCall.status === 'rejected'
+          ? `Không xác định được quyền KPI: ${kpiAccessCall.reason instanceof Error ? kpiAccessCall.reason.message : String(kpiAccessCall.reason)}`
+          : kpiAccessCall.value.error
+            ? `Không xác định được quyền KPI: ${kpiAccessCall.value.error.message}`
+            : '',
       })
     })
 
@@ -220,7 +229,11 @@ export function AdminShell({
                 {section.title}
               </p>
               {section.items
-                .filter((item) => item.href !== '/bao-cao' || reportAccess.permissions.length > 0)
+                .filter((item) => {
+                  if (item.href === '/kpi') return reportAccess.canViewKpi
+                  if (item.href === '/bao-cao') return reportAccess.permissions.some((permission) => permission.startsWith('BAO_CAO_'))
+                  return true
+                })
                 .map((item) => {
                 const Icon = item.icon
                 const isActive = active === item.label
@@ -284,6 +297,7 @@ export function AdminShell({
           </div>
         </header>
         {authError && <p role="alert" className="mx-5 mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 sm:mx-8">{authError}</p>}
+        {reportAccess.kpiAccessError && <p role="alert" className="mx-5 mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 sm:mx-8">{reportAccess.kpiAccessError}</p>}
         <ReportAccessContext.Provider value={reportAccess}>
           <div className="mx-auto w-full max-w-[1920px] p-5 sm:p-7 2xl:px-10 2xl:py-8">{children}</div>
         </ReportAccessContext.Provider>

@@ -80,22 +80,7 @@ const emptyReportColumns: Record<string, string[]> = {
     'doanh_thu',
     'hoa_hong',
   ],
-  support_conversations: [
-    'qna_id',
-    'thi_sinh_id',
-    'doanh_nghiep_id',
-    'doi_tuong_id',
-    'loai_doi_tuong',
-    'ten_hien_thi',
-    'noi_dung_hoi',
-    'noi_dung_tra_loi',
-    'tai_lieu_id',
-    'thoi_gian',
-    'kenh_tuong_tac',
-    'trang_thai',
-    'danh_gia_hai_long',
-    'nhan_vien_id_ho_tro',
-  ],
+  support_top_questions: ['thu_tu', 'cau_hoi', 'so_lan_xuat_hien'],
   import_sessions: [
     'import_id',
     'ten_file',
@@ -137,8 +122,6 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'student_summary', title: 'Tổng quan thí sinh', visualization: 'metrics' },
       { reportId: 'student_status', title: 'Trạng thái hồ sơ', visualization: 'pie' },
       { reportId: 'student_schools', title: 'Thí sinh theo trường', visualization: 'bar-horizontal' },
-      { reportId: 'student_top1', title: 'Top 1% thí sinh', visualization: 'table' },
-      { reportId: 'student_top3', title: 'Top 3% thí sinh', visualization: 'table' },
       { reportId: 'student_school_scores', title: 'Kết quả theo trường và bảng', visualization: 'bar-table' },
       { reportId: 'student_utm', title: 'Hiệu quả theo nguồn UTM', visualization: 'table' },
     ],
@@ -189,8 +172,8 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'support_by_status', title: 'Hội thoại theo trạng thái', visualization: 'pie' },
       { reportId: 'support_by_entity', title: 'Hội thoại theo nhóm đối tượng', visualization: 'bar' },
       { reportId: 'support_faq_summary', title: 'Hiệu quả bộ câu hỏi FAQ', visualization: 'metrics' },
+      { reportId: 'support_top_questions', title: '50 câu hỏi thường gặp nhất', description: 'Xếp theo số lần xuất hiện giảm dần trong kỳ báo cáo.', visualization: 'table' },
       { reportId: 'support_faq_categories', title: 'Câu hỏi theo danh mục', visualization: 'bar-horizontal' },
-      { reportId: 'support_conversations', title: 'Danh sách hội thoại cần theo dõi', visualization: 'table' },
     ],
   },
   'Bảo mật': {
@@ -216,7 +199,24 @@ function quarterOptions(): string[] {
 }
 
 function defaultReportPeriod(): string {
-  return `${new Date().getFullYear()}-Q3`
+  const now = new Date()
+  return `${now.getFullYear()}-Q3`
+}
+
+function reportPeriodRange(period: string): string {
+  const match = /^(\d{4})-Q([1-4])$/.exec(period)
+  if (!match) return 'Kỳ không hợp lệ'
+  const year = Number(match[1])
+  const quarter = Number(match[2])
+  const start = new Date(Date.UTC(year, (quarter - 1) * 3, 1))
+  const end = new Date(Date.UTC(year, quarter * 3, 0))
+  const formatDate = (date: Date) => new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+  return `${formatDate(start)} – ${formatDate(end)}`
 }
 
 function peakRegistrationWindow(value: unknown, period: string): Record<string, unknown>[] {
@@ -346,7 +346,7 @@ function safeSheetName(value: string, used: Set<string>): string {
 
 export default function ReportPage() {
   return (
-    <AdminShell active="KPI & Báo cáo" title="KPI & Báo cáo">
+    <AdminShell active="Báo cáo" title="Báo cáo">
       <ReportContent />
     </AdminShell>
   )
@@ -363,6 +363,7 @@ function ReportContent() {
   const [requestNumber, setRequestNumber] = useState(0)
   const [exportFormat, setExportFormat] = useState<'excel' | 'word' | 'pdf' | 'csv'>('excel')
   const [exportError, setExportError] = useState('')
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const tabs = Object.keys(reportSections) as ReportTab[]
   const options = useMemo(quarterOptions, [])
   const allowedTabs = tabs.filter((tab) => reportAccess.permissions.includes(reportSections[tab].permission))
@@ -405,13 +406,7 @@ function ReportContent() {
     ? `${exportCell(registrationTrendStart, 'ngay')} – ${exportCell(registrationTrendEnd, 'ngay')}`
     : ''
 
-  const visibleSections = sections.filter((section) => {
-    if (loading || errors[section.reportId]) return true
-    const data = displayResults[section.reportId]
-    if (data == null) return true
-    if (Array.isArray(data)) return data.length > 0
-    return typeof data !== 'object' || Object.keys(data).length > 0
-  })
+  const visibleSections = sections
 
   function reportExportRows(includeEmpty = false): ReportExportDataset[] {
     return sections.flatMap<ReportExportDataset>((section) => {
@@ -447,20 +442,24 @@ function ReportContent() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
-  async function exportReport() {
+  async function exportReport(format = exportFormat, reportIds?: readonly string[]) {
     setExportError('')
-    const datasets = reportExportRows(exportFormat === 'excel')
+    const datasets = reportExportRows(true)
+      .filter((dataset) => !reportIds || reportIds.includes(dataset.reportId))
     if (!datasets.length) return
 
     try {
-    if (exportFormat === 'pdf') {
+    if (format === 'pdf') {
       const printWindow = window.open('', '_blank', 'width=1000,height=800')
       if (!printWindow) {
         setExportError('Trình duyệt đang chặn cửa sổ in. Hãy cho phép cửa sổ bật lên để lưu PDF.')
         return
       }
       printWindow.opener = null
-      const reportHtml = datasets.map(({ title, rows }) => {
+      const reportHtml = datasets.map(({ title, rows, emptyMessage }) => {
+        if (!rows.length) {
+          return `<section><h2>${htmlEscape(title)}</h2><p class="empty-note">${htmlEscape(emptyMessage)}</p></section>`
+        }
         const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
         return `<section><h2>${htmlEscape(title)}</h2><table><thead><tr>${columns.map((column) => `<th>${htmlEscape(formatFieldLabel(column))}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column) => `<td>${htmlEscape(exportCell(row[column], column))}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`
       }).join('')
@@ -468,7 +467,7 @@ function ReportContent() {
 <html lang="vi">
   <head>
     <meta charset="utf-8">
-    <title>Báo cáo ${htmlEscape(currentReportTab)} ${htmlEscape(period)}</title>
+    <title>${htmlEscape(reportIds?.includes('support_top_questions') ? '50 câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)} ${htmlEscape(period)}</title>
     <style>
       @page { size: A4 landscape; margin: 18mm 16mm; }
       * { box-sizing: border-box; }
@@ -517,6 +516,7 @@ function ReportContent() {
         font-weight: 700;
       }
       tbody tr:nth-child(even) { background: #f1f5f9; }
+      .empty-note { padding: 10pt 12pt; border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; }
       @media screen {
         body { max-width: 1120px; margin: 32px auto; padding: 32px; background: #fff; box-shadow: 0 1px 8px #cbd5e1; }
       }
@@ -527,7 +527,7 @@ function ReportContent() {
     </style>
   </head>
   <body>
-    <h1>Báo cáo ${htmlEscape(currentReportTab)}</h1>
+    <h1>${htmlEscape(reportIds?.includes('support_top_questions') ? '50 câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)}</h1>
     <p class="report-meta">Kỳ báo cáo: ${htmlEscape(period)}</p>
     <p class="report-time">Xuất lúc: ${htmlEscape(new Date().toLocaleString('vi-VN'))}</p>
     ${reportHtml}
@@ -540,21 +540,25 @@ function ReportContent() {
       return
     }
 
-    if (exportFormat === 'csv') {
+    if (format === 'csv') {
       const lines: string[] = []
-      for (const { title, rows } of datasets) {
-        const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+      for (const { title, rows, emptyColumns, emptyMessage } of datasets) {
+        const columns = emptyColumns ?? Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
         lines.push(csvCell(title), columns.map((column) => csvCell(formatFieldLabel(column))).join(','))
-        for (const row of rows) lines.push(columns.map((column) => csvCell(row[column], column)).join(','))
+        if (rows.length) {
+          for (const row of rows) lines.push(columns.map((column) => csvCell(row[column], column)).join(','))
+        } else {
+          lines.push(csvCell(emptyMessage))
+        }
         lines.push('')
       }
       downloadFile(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }), 'csv')
       return
     }
 
-    if (exportFormat === 'excel') {
+    if (format === 'excel') {
       const excelDatasets = datasets.filter(({ reportId }) =>
-        !['overview_comparison', 'student_top1', 'student_top3', 'contest_finalists', 'practice_top15'].includes(reportId),
+        !['overview_comparison', 'contest_finalists', 'practice_top15'].includes(reportId),
       )
       const usedNames = new Set<string>()
       const workbook = XLSX.utils.book_new()
@@ -755,14 +759,27 @@ function ReportContent() {
         children: [new TextRun({ text: `Xuất lúc: ${new Date().toLocaleString('vi-VN')}`, color: '64748B', font: 'Arial', size: 26 })],
       }),
     ]
-    for (const { title, rows } of datasets) {
-      const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+    for (const { title, rows, emptyColumns, emptyMessage } of datasets) {
+      const columns = emptyColumns ?? Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
       children.push(new Paragraph({
         heading: HeadingLevel.HEADING_1,
         keepNext: true,
         spacing: { before: 240, after: 100 },
         children: [new TextRun({ text: title, bold: true, color: '1D5FA7', font: 'Arial', size: 36 })],
       }))
+      if (!rows.length) {
+        children.push(new Paragraph({
+          shading: { type: ShadingType.CLEAR, fill: 'FFF7ED' },
+          spacing: { after: 180 },
+          children: [new TextRun({
+            text: emptyMessage ?? 'Báo cáo không trả về dữ liệu trong kỳ đã chọn.',
+            color: '9A3412',
+            font: 'Arial',
+            size: 26,
+          })],
+        }))
+        continue
+      }
       const tableRows = [
         new TableRow({
           tableHeader: true,
@@ -843,34 +860,49 @@ function ReportContent() {
         for (const section of sections) delete next[section.reportId]
         return next
       })
-      const responses = await Promise.all(
-        sections.map(async (section) => {
-          const response = section.reportId === 'revenue_by_region'
-            ? await supabase.rpc('fn_report_revenue_by_region', { p_ky: period })
-            : section.reportId === 'practice_top15'
-              ? await supabase.rpc('fn_report_practice_top15', { p_ky: period })
-              : section.reportId === 'lead_pipeline'
-                ? await supabase.rpc('fn_report_lead_pipeline', { p_ky: period })
-                : section.reportId === 'overview_registration_trend'
-                  ? await supabase.rpc('fn_report_registration_peak_trend', { p_ky: period })
-                : await supabase.rpc('fn_bao_cao_du_lieu', {
-                  p_ma_bao_cao: section.reportId,
-                  p_ky: period,
-                })
-          return { reportId: section.reportId, data: response.data, error: response.error }
-        }),
-      )
-      if (!active) return
-      const nextResults: Record<string, unknown> = {}
-      const nextErrors: Record<string, string> = {}
-      for (const response of responses) {
-        if (response.error) nextErrors[response.reportId] = `Không tải được dữ liệu: ${response.error.message}`
-        else nextResults[response.reportId] = response.data
-      }
+      try {
+        const responses = await Promise.all(
+          sections.map(async (section) => {
+            const response = section.reportId === 'support_top_questions'
+              ? await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
+              : section.reportId === 'revenue_by_region'
+                ? await supabase.rpc('fn_report_revenue_by_region', { p_ky: period })
+                : section.reportId === 'practice_top15'
+                  ? await supabase.rpc('fn_report_practice_top15', { p_ky: period })
+                  : section.reportId === 'lead_pipeline'
+                    ? await supabase.rpc('fn_report_lead_pipeline', { p_ky: period })
+                    : section.reportId === 'overview_registration_trend'
+                      ? await supabase.rpc('fn_report_registration_peak_trend', { p_ky: period })
+                      : await supabase.rpc('fn_bao_cao_du_lieu', {
+                        p_ma_bao_cao: section.reportId,
+                        p_ky: period,
+                      })
+            return { reportId: section.reportId, data: response.data, error: response.error }
+          }),
+        )
+        if (!active) return
+        const nextResults: Record<string, unknown> = {}
+        const nextErrors: Record<string, string> = {}
+        for (const response of responses) {
+          if (response.error) nextErrors[response.reportId] = `Không tải được dữ liệu: ${response.error.message}`
+          else nextResults[response.reportId] = response.data
+        }
 
-      setResults((current) => ({ ...current, ...nextResults }))
-      setErrors(nextErrors)
-      setLoading(false)
+        setResults((current) => ({ ...current, ...nextResults }))
+        setErrors(nextErrors)
+      } catch (loadError) {
+        if (!active) return
+        const message = loadError instanceof Error ? loadError.message : String(loadError)
+        setErrors(Object.fromEntries(sections.map((section) => [
+          section.reportId,
+          `Không tải được dữ liệu: ${message}`,
+        ])))
+      } finally {
+        if (active) {
+          setLoadedAt(new Date())
+          setLoading(false)
+        }
+      }
     }
     void loadReport()
     return () => { active = false }
@@ -897,6 +929,10 @@ function ReportContent() {
               {!options.includes(period) && <option value={period}>{period}</option>}
             </select>
           </label>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-500">
+            <RefreshCw size={13} className="text-blue-500" />
+            {loading ? 'Đang tải dữ liệu…' : loadedAt ? `Tải xong lúc ${loadedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })} ${loadedAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : 'Chưa tải dữ liệu'}
+          </div>
           <button
             onClick={() => setRequestNumber((number) => number + 1)}
             className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
@@ -904,8 +940,8 @@ function ReportContent() {
             <RefreshCw size={14} /> Làm mới
           </button>
           <button
-            onClick={exportReport}
-            disabled={!sections.some((section) => displayResults[section.reportId] != null)}
+            onClick={() => void exportReport()}
+            disabled={loading || !sections.some((section) => displayResults[section.reportId] != null)}
             className="flex h-10 items-center gap-2 rounded-r-xl bg-blue-600 px-3.5 text-sm font-semibold text-white shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
           >
             {exportFormat === 'excel' && <FileSpreadsheet size={14} />}
@@ -934,6 +970,13 @@ function ReportContent() {
           Xuất file không thành công: {exportError}
         </p>
       )}
+
+      <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-semibold">Kỳ đang xem: {period}</span>
+          <span className="text-blue-700">Khoảng ngày: {reportPeriodRange(period)}</span>
+        </div>
+      </div>
 
       <div className="mb-5 overflow-x-auto border-b border-slate-200">
         <div className="flex min-w-max gap-1">
@@ -971,7 +1014,7 @@ function ReportContent() {
 
       <div className="space-y-5">
         {visibleSections.map((section) => (
-          <div key={`${period}-${section.reportId}`} className="w-full">
+          <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
             <DataPanel
               title={section.title}
               description={section.reportId === 'overview_registration_trend'
@@ -980,6 +1023,15 @@ function ReportContent() {
               data={displayResults[section.reportId]}
               loading={loading && !displayResults[section.reportId]}
               error={errors[section.reportId]}
+              action={section.reportId === 'support_top_questions' && exportRows(displayResults.support_top_questions).length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => void exportReport('pdf', ['support_top_questions'])}
+                  className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                >
+                  <Printer size={14} /> Xuất 50 câu hỏi PDF
+                </button>
+              ) : undefined}
               visualization={section.visualization}
               compactTable={section.reportId === 'lead_pipeline'}
               chartValueField={section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}

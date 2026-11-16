@@ -2,9 +2,36 @@
 -- This RPC exposes a fixed allowlist of read-only module data to signed-in users.
 -- It intentionally does not expose mutation, export, or arbitrary SQL functions.
 
+CREATE OR REPLACE FUNCTION public.fn_current_user_can_view_kpi_dashboard()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.nhanvien nv
+    JOIN public.nhanvien_vaitro_ct nvt ON nvt.nhan_vien_id = nv.nhan_vien_id
+    JOIN public.vaitro vt ON vt.role_id = nvt.role_id AND vt.trang_thai = 'DANG_AP_DUNG'
+    WHERE nv.trang_thai = 'ACTIVE'
+      AND (
+        nv.user_id = auth.uid()
+        OR (
+          nv.user_id IS NULL
+          AND lower(nv.email) = lower(auth.jwt() ->> 'email')
+        )
+      )
+      AND (
+        vt.role_id = 'ADMIN'
+        OR (vt.role_id = 'MANAGER' AND nv.phong_ban = 'BAN_TO_CHUC')
+      )
+  )
+$$;
+
 CREATE OR REPLACE FUNCTION public.fn_admin_module_data(
   p_resource text,
-  p_ky text DEFAULT '2026-Q3',
+  p_ky text DEFAULT NULL,
   p_filter text DEFAULT NULL,
   p_limit integer DEFAULT 50
 )
@@ -16,9 +43,17 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 50), 1), 100);
-  v_ky text := COALESCE(NULLIF(p_ky, ''), '2026-Q3');
+  v_ky text := COALESCE(NULLIF(p_ky, ''), to_char(CURRENT_DATE, 'YYYY') || '-Q' || extract(quarter FROM CURRENT_DATE)::int::text);
   v_filter text := NULLIF(btrim(p_filter), '');
 BEGIN
+  IF p_resource IN (
+    'kpi_overview', 'kpi_signals', 'kpi_progress', 'student_kpi',
+    'student_funnel', 'sponsor_kpi', 'revenue_kpi', 'revenue_funnel',
+    'revenue_channels', 'revenue_trend', 'payment_pending', 'marketing_roi'
+  ) AND NOT public.fn_current_user_can_view_kpi_dashboard() THEN
+    RAISE EXCEPTION 'Tài khoản không có quyền xem dữ liệu KPI toàn hệ thống.' USING ERRCODE = '42501';
+  END IF;
+
   CASE p_resource
     WHEN 'student_status' THEN
       RETURN QUERY SELECT to_jsonb(v) FROM public.vw_thisinh_bieudo_trangthai v LIMIT v_limit;
@@ -140,6 +175,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.fn_admin_module_data(text, text, text, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.fn_admin_module_data(text, text, text, integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.fn_current_user_can_view_kpi_dashboard() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fn_current_user_can_view_kpi_dashboard() TO authenticated;
 
 -- Q3 dashboard RPCs are read-only and use fixed, aggregate result shapes.
 REVOKE ALL ON FUNCTION public.fn_dashboard_card_public(integer) FROM PUBLIC, anon;

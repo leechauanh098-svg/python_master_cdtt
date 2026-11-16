@@ -20,11 +20,16 @@ export default function DashboardPage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-100">TRUNG TÂM ĐIỀU HÀNH</p>
         <h2 className="mt-2 text-2xl font-bold tracking-tight">Không gian làm việc</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">
-          Chọn phân hệ để xử lý công việc. KPI, biểu đồ và dữ liệu tổng hợp được tập trung tại trang Báo cáo.
+          Chọn phân hệ để xử lý công việc. KPI và Báo cáo được tách riêng theo module để theo dõi mục tiêu và xuất dữ liệu rõ ràng.
         </p>
-        <Link href="/bao-cao" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50">
-          <BarChart3 size={15} /> Mở KPI & Báo cáo <ArrowRight size={14} />
-        </Link>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/kpi" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50">
+            <BarChart3 size={15} /> Mở KPI <ArrowRight size={14} />
+          </Link>
+          <Link href="/bao-cao" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-white/15">
+            <BarChart3 size={15} /> Mở Báo cáo <ArrowRight size={14} />
+          </Link>
+        </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -9,6 +9,8 @@ export type ReportAccess = {
   roleIds: string[]
   roleNames: string[]
   permissions: string[]
+  canViewKpi: boolean
+  kpiAccessError: string
 }
 
 export const emptyReportAccess: ReportAccess = {
@@ -18,6 +20,8 @@ export const emptyReportAccess: ReportAccess = {
   roleIds: [],
   roleNames: [],
   permissions: [],
+  canViewKpi: false,
+  kpiAccessError: '',
 }
 
 export const ReportAccessContext = createContext<ReportAccess>(emptyReportAccess)

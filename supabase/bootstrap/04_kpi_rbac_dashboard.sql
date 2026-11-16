@@ -1441,7 +1441,7 @@ NOTIFY pgrst, 'reload schema';
 
 CREATE OR REPLACE FUNCTION public.fn_admin_module_data(
   p_resource text,
-  p_ky text DEFAULT '2026-Q3',
+  p_ky text DEFAULT NULL,
   p_filter text DEFAULT NULL,
   p_limit integer DEFAULT 50
 )
@@ -1453,7 +1453,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 50), 1), 100);
-  v_ky text := COALESCE(NULLIF(p_ky, ''), '2026-Q3');
+  v_ky text := COALESCE(NULLIF(p_ky, ''), to_char(CURRENT_DATE, 'YYYY') || '-Q' || extract(quarter FROM CURRENT_DATE)::int::text);
   v_filter text := NULLIF(btrim(p_filter), '');
 BEGIN
   CASE p_resource

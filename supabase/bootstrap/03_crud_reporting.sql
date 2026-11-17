@@ -1316,7 +1316,18 @@ RETURNS SETOF vw_ds_bainop LANGUAGE sql STABLE AS $$
   WHERE (p_cuoc_thi_id IS NULL OR cuoc_thi_id = p_cuoc_thi_id) AND (p_tu_ngay IS NULL OR thoi_gian_nop >= p_tu_ngay)
     AND (p_den_ngay IS NULL OR thoi_gian_nop <= p_den_ngay) ORDER BY thoi_gian_nop $$;
 
-CREATE OR REPLACE VIEW vw_baocao_phanbo_trangthai_bainop AS SELECT trang_thai, count(*) AS so_luong FROM bainop GROUP BY trang_thai;
+CREATE OR REPLACE VIEW vw_baocao_phanbo_trangthai_bainop AS
+WITH latest_submission AS (
+  SELECT DISTINCT ON (bn.thi_sinh_id) bn.thi_sinh_id, bn.trang_thai
+  FROM bainop bn
+  ORDER BY bn.thi_sinh_id,
+           COALESCE(bn.thoi_gian_nop, bn.thoi_gian_bat_dau) DESC,
+           bn.updated_at DESC,
+           bn.bai_nop_id DESC
+)
+SELECT trang_thai, count(*) AS so_luong
+FROM latest_submission
+GROUP BY trang_thai;
 
 CREATE OR REPLACE FUNCTION fn_tyle_khong_dat_baitap(p_bai_tap_id varchar) RETURNS numeric LANGUAGE sql STABLE AS $$
   SELECT COALESCE(round(100.0 * sum(CASE WHEN bn.tong_diem IS NOT NULL AND bt.diem_dat IS NOT NULL AND bn.tong_diem < bt.diem_dat THEN 1 ELSE 0 END)

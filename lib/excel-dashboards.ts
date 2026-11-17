@@ -132,11 +132,6 @@ function dateLabel(value: unknown): string {
   return match ? `${Number(match[3])}/${Number(match[2])}` : formatCell(value)
 }
 
-function excelDateSerial(value: unknown): number | null {
-  const timestamp = new Date(String(value ?? '')).getTime()
-  return Number.isNaN(timestamp) ? null : timestamp / 86_400_000 + 25569
-}
-
 function dashboardMetrics(
   tab: string,
   period: string,
@@ -156,11 +151,43 @@ function dashboardMetrics(
   const addChart = (reportId: string, value: DashboardChart | null) => {
     if (value) charts.push({ ...value, reportId })
   }
+  const legacyTabByReportTab: Record<string, string> = {
+    'Vận hành thí sinh': 'Thí sinh',
+    'Tài chính': 'Doanh thu',
+    'Tài trợ/đối tác': 'Đối tác',
+    'Học thuật/kết quả thi': 'Học vụ',
+    'Hệ thống': 'Bảo mật',
+  }
+  const dashboardTab = legacyTabByReportTab[tab] ?? tab
+  const addMarketingCharts = () => {
+    const campaigns = rowsFor(datasets, 'student_utm').slice()
+      .sort((a, b) => (numberValue(b.luot_tiep_can) ?? 0) - (numberValue(a.luot_tiep_can) ?? 0))
+    const campaignLabels = campaigns.map((row) => [row.nguon_utm, row.chien_dich].filter(Boolean).map(formatCell).join(' / '))
+    const campaignChart = chart('Tiếp cận và đăng ký theo chiến dịch', campaignLabels, [
+      { name: 'Lượt tiếp cận', values: campaigns.map((row) => numberValue(row.luot_tiep_can)) },
+      { name: 'Số lượt đăng ký', values: campaigns.map((row) => numberValue(row.so_dang_ky)) },
+    ], 'bar', { direction: 'col', showValues: true })
+    addChart('student_utm', campaignChart)
+    const roiCampaigns = campaigns.filter((row) => numberValue(row.roi_pct) != null)
+    const roiChart = chart('ROI theo chiến dịch (%)', roiCampaigns.map((row) =>
+      [row.nguon_utm, row.chien_dich].filter(Boolean).map(formatCell).join(' / '),
+    ), [{ name: 'ROI (%)', values: roiCampaigns.map((row) => numberValue(row.roi_pct)) }],
+    'bar', { direction: 'bar', showValues: true })
+    addChart('student_utm', roiChart)
+    const leads = rowsFor(datasets, 'lead_pipeline')
+    const leadChart = groupedChart('Lead theo nguồn và trạng thái thanh toán', leads, 'nguon', 'trang_thai_thanh_toan', 'so_luong',
+      { grouping: 'stacked', showValues: true })
+    addChart('lead_pipeline', leadChart)
+    if (campaigns.some((row) => numberValue(row.chi_phi) == null || numberValue(row.chi_phi) === 0)) {
+      notes.push('Một số chiến dịch chưa có chi phí quảng cáo; ROI không tính được cho chiến dịch đó.')
+    }
+    return campaigns
+  }
   let kpis: DashboardKpi[] = []
   let title = `${tab} ${period.replace('-', '/')}`
 
-  if (tab === 'Tổng quan') {
-    title = `Tổng quan ${period.replace('-', '/')}`
+  if (dashboardTab === 'Tổng quan') {
+    title = `${tab} ${period.replace('-', '/')}`
     kpis = [
       { label: 'Tổng thu', value: money(summary.tong_thu) },
       { label: 'Doanh thu lệ phí', value: money(summary.doanh_thu_le_phi) },
@@ -175,7 +202,10 @@ function dashboardMetrics(
       values: [numberValue(summary.doanh_thu_le_phi), numberValue(summary.thuc_thu_tai_tro)],
     }], 'doughnut', { showValues: true, showPercent: true })
     addChart('overview_summary', composition)
-    const funnelRows = rowsFor(datasets, 'overview_enrollment_funnel').slice().sort((a, b) => Number(a.thu_tu) - Number(b.thu_tu))
+    const funnelRows = rowsFor(datasets, 'overview_enrollment_funnel')
+      .filter((row) => !String(row.buoc ?? '').trim().toLocaleLowerCase('vi').startsWith('hoàn thành'))
+      .slice()
+      .sort((a, b) => Number(a.thu_tu) - Number(b.thu_tu))
     const funnel = chart('Phễu tuyển sinh', funnelRows.map((row) =>
       `${formatCell(row.buoc)} (${percent(row.ty_le_so_voi_tiep_can_pct)})`,
     ), [{
@@ -199,15 +229,12 @@ function dashboardMetrics(
     const leadChart = groupedChart('Lead theo nguồn và trạng thái thanh toán', leads, 'nguon', 'trang_thai_thanh_toan', 'so_luong',
       { grouping: 'stacked', showValues: true })
     addChart('lead_pipeline', leadChart)
-    if (funnelRows.some((row) => formatCell(row.buoc).toLocaleLowerCase('vi').includes('hoàn thành') && Number(row.so_luong) === 0)) {
-      notes.push('Bước “Hoàn thành” bằng 0; số liệu này cần đối chiếu với báo cáo Học vụ.')
-    }
-  } else if (tab === 'Thí sinh') {
-    title = `Thí sinh & Tuyển sinh ${period.replace('-', '/')}`
+  } else if (dashboardTab === 'Thí sinh') {
+    title = `${tab} ${period.replace('-', '/')}`
     const student = combineRows(rowsFor(datasets, 'student_summary'))
     kpis = [
-      { label: 'Thí sinh tham gia', value: count(student.tham_gia_thuc_te) },
       { label: 'Đăng ký thi', value: count(student.dang_ky_thi) },
+      { label: 'Thí sinh tham gia', value: count(student.tham_gia_thuc_te) },
       { label: 'Tỷ lệ tham gia', value: percent(student.ty_le_tham_gia_pct) },
       { label: 'Tổng lượt tiếp cận', value: count(student.tong_tiep_can) },
     ]
@@ -220,36 +247,38 @@ function dashboardMetrics(
     addChart('student_summary', participation)
     if (student.tong_tiep_can != null) notes.push(`Tổng lượt tiếp cận: ${count(student.tong_tiep_can)}.`)
     const statusRows = rowsFor(datasets, 'student_status').filter((row) => Number(row.so_luong) > 0)
-    const status = rowsChart('Trạng thái hồ sơ', statusRows, 'trang_thai', [{ key: 'so_luong', name: 'Số lượng' }], 'doughnut', { showValues: true, showPercent: true })
+    const status = rowsChart('Tình trạng thanh toán trong kỳ', statusRows, 'trang_thai', [{ key: 'so_luong', name: 'Số lượng' }], 'doughnut', { showValues: true, showPercent: true })
     addChart('student_status', status)
     const schools = rowsFor(datasets, 'student_schools').slice().sort((a, b) => Number(b.so_luong_thi_sinh) - Number(a.so_luong_thi_sinh)).slice(0, 15)
     const shortenedSchools = schools.map((row) => ({
       ...row,
       truong_hoc: shortenSchoolName(String(row.truong_hoc ?? '')),
     }))
-    const schoolChart = rowsChart('Thí sinh theo trường', shortenedSchools, 'truong_hoc', [{ key: 'so_luong_thi_sinh', name: 'Số thí sinh' }], 'bar', { direction: 'bar', showValues: true })
+    const schoolChart = rowsChart('Số thí sinh theo trường', shortenedSchools, 'truong_hoc', [{ key: 'so_luong_thi_sinh', name: 'Số thí sinh' }], 'bar', { direction: 'bar', showValues: true })
     addChart('student_schools', schoolChart)
-    if (schools.length) notes.push(`Tên trường rút gọn trên biểu đồ; danh sách đầy đủ xem tại sheet “Thí sinh theo trường”.`)
+    if (schools.length) notes.push(`Tên trường rút gọn trên biểu đồ; danh sách đầy đủ xem tại sheet “Số thí sinh theo trường”.`)
     const scoreRows = rowsFor(datasets, 'student_school_scores').filter((row) => numberValue(row.so_thi_sinh) != null)
-    const schoolByBracket = groupedChart('Thí sinh theo bảng đấu và trường', scoreRows, 'truong_hoc', 'bang_dau', 'so_thi_sinh',
+    const schoolByBracket = groupedChart('Số thí sinh theo trường của từng bảng đấu', scoreRows, 'truong_hoc', 'bang_dau', 'so_thi_sinh',
       { grouping: 'stacked', showValues: true })
     addChart('student_school_scores', schoolByBracket)
-    const campaigns = rowsFor(datasets, 'student_utm').slice()
-      .sort((a, b) => (numberValue(b.luot_tiep_can) ?? 0) - (numberValue(a.luot_tiep_can) ?? 0))
-    const campaignLabels = campaigns.map((row) => [row.nguon_utm, row.chien_dich].filter(Boolean).map(formatCell).join(' / '))
-    const campaignChart = chart('Hiệu quả chiến dịch quảng cáo', campaignLabels, [
-      { name: 'Lượt tiếp cận', values: campaigns.map((row) => numberValue(row.luot_tiep_can)) },
-      { name: 'Số lượt đăng ký', values: campaigns.map((row) => numberValue(row.so_dang_ky)) },
-    ], 'bar', { direction: 'col', showValues: true })
-    addChart('student_utm', campaignChart)
-    const revenueCampaigns = campaigns.filter((row) => Number(row.doanh_thu) > 0)
-    const revenueChart = chart('Doanh thu theo chiến dịch', revenueCampaigns.map((row) =>
-      [row.nguon_utm, row.chien_dich].filter(Boolean).map(formatCell).join(' / '),
-    ), [{ name: 'Doanh thu', values: revenueCampaigns.map((row) => numberValue(row.doanh_thu)) }], 'bar', { direction: 'bar', showValues: true })
-    addChart('student_utm', revenueChart)
-    if (campaigns.some((row) => Number(row.chi_phi) === 0 || row.chi_phi == null)) notes.push('Chưa nhập chi phí quảng cáo nên chưa tính được ROI.')
-  } else if (tab === 'Doanh thu') {
-    title = `Doanh thu ${period.replace('-', '/')}`
+  } else if (dashboardTab === 'Marketing') {
+    title = `Marketing ${period.replace('-', '/')}`
+    const campaigns = addMarketingCharts()
+    const totalReach = campaigns.reduce((sum, row) => sum + (numberValue(row.luot_tiep_can) ?? 0), 0)
+    const totalRegistrations = campaigns.reduce((sum, row) => sum + (numberValue(row.so_dang_ky) ?? 0), 0)
+    const totalCost = campaigns.reduce((sum, row) => sum + (numberValue(row.chi_phi) ?? 0), 0)
+    const totalRevenue = campaigns.reduce((sum, row) => sum + (numberValue(row.doanh_thu) ?? 0), 0)
+    const roi = totalCost > 0 ? ((totalRevenue - totalCost) * 100) / totalCost : null
+    kpis = [
+      { label: 'Nguồn/campaign', value: count(campaigns.length) },
+      { label: 'Lượt tiếp cận', value: count(totalReach) },
+      { label: 'Đăng ký', value: count(totalRegistrations) },
+      { label: 'Chi phí quảng cáo', value: money(totalCost) },
+      { label: 'Doanh thu', value: money(totalRevenue) },
+      { label: 'ROI', value: roi == null ? '—' : `${roi.toFixed(2)}%` },
+    ]
+  } else if (dashboardTab === 'Doanh thu') {
+    title = `${tab} ${period.replace('-', '/')}`
     const revenue = combineRows(rowsFor(datasets, 'revenue_summary'))
     kpis = [
       { label: 'Tổng doanh thu', value: money(revenue.tong_doanh_thu) },
@@ -281,8 +310,8 @@ function dashboardMetrics(
     const byDate = aggregateTransactionDates(reconciliation)
     const reconChart = chart('Giao dịch chờ đối soát quá 48 giờ', byDate.categories, [
       { name: 'Số giao dịch', values: byDate.counts },
-      { name: 'Tổng số tiền', values: byDate.amounts },
-    ], 'bar', { direction: 'col', grouping: 'clustered', showValues: true })
+      { name: 'Tổng số tiền', values: byDate.amounts, chartType: 'line' },
+    ], 'combo', { direction: 'col', grouping: 'clustered', showValues: true })
     addChart('revenue_reconciliation', reconChart)
     if (reconciliation.some((row) => Number(row.so_tien) === 0)) notes.push('Nhiều giao dịch đang đối soát có số tiền bằng 0.')
     const transactions = rowsFor(datasets, 'transaction_details')
@@ -300,10 +329,10 @@ function dashboardMetrics(
     const directShare = channels.filter((row) => /trực tiếp|không xác định/i.test(formatCell(row.kenh)))
       .reduce((sum, row) => sum + (numberValue(row.ty_le_pct) ?? 0), 0)
     if (directShare > 0) notes.push(`Trực tiếp/Không xác định chiếm khoảng ${percent(directShare)} doanh thu.`)
-  } else if (tab === 'Học vụ') {
-    title = `Học vụ & Kết quả thi ${period.replace('-', '/')}`
+  } else if (dashboardTab === 'Học vụ') {
+    title = `${tab} ${period.replace('-', '/')}`
     const statusRows = rowsFor(datasets, 'submission_status')
-    const status = rowsChart('Trạng thái bài nộp', statusRows, 'trang_thai', [{ key: 'so_luong', name: 'Số lượng' }], 'doughnut', { showValues: true, showPercent: true })
+    const status = rowsChart('Trạng thái bài nộp gần nhất theo thí sinh', statusRows, 'trang_thai', [{ key: 'so_luong', name: 'Số lượng thí sinh' }], 'doughnut')
     addChart('submission_status', status)
     const failRows = rowsFor(datasets, 'submission_failures')
     const failures = chart('Bài tập có tỷ lệ không đạt cao', failRows.map((row) => formatCell(row.ten_bai_tap)), [
@@ -315,29 +344,17 @@ function dashboardMetrics(
       { key: 'tyle_khong_dat_pt', name: 'Tỷ lệ không đạt (%)' },
     ], 'bar', { direction: 'bar', showValues: true })
     addChart('submission_failures_by_province', province)
-    const roundRows = rowsFor(datasets, 'contest_rounds')
-      .map((row) => ({
-        row,
-        start: excelDateSerial(row.ngay_bat_dau),
-        end: excelDateSerial(row.ngay_ket_thuc),
-      }))
-      .filter((item): item is { row: Record<string, unknown>; start: number; end: number } =>
-        item.start != null && item.end != null && item.end >= item.start,
-      )
-      .sort((a, b) => a.start - b.start)
-    const rounds = chart('Lịch các vòng thi', roundRows.map(({ row }) =>
-      `${formatCell(row.ten_cuoc_thi)} · Hạn đăng ký ${dateLabel(row.han_dang_ky)}`,
-    ), [
-      { name: 'Bắt đầu', values: roundRows.map(({ start }) => start), hidden: true },
-      { name: 'Thời lượng (ngày)', values: roundRows.map(({ start, end }) => end - start), color: '4472C4' },
-    ], 'gantt', {
-      direction: 'bar',
-      grouping: 'stacked',
-      axisMin: roundRows.length ? Math.min(...roundRows.map(({ start }) => start)) : undefined,
-      axisMax: roundRows.length ? Math.max(...roundRows.map(({ end }) => end)) : undefined,
+    const results: Record<string, unknown>[] = rowsFor(datasets, 'contest_results').map((row) => {
+      const outcome = formatCell(row.ket_qua_xet).toLocaleLowerCase('vi')
+      return {
+        ...row,
+        ket_qua_xet: outcome.includes('không đạt')
+          ? 'Không đạt'
+          : outcome.includes('đạt')
+            ? 'Đạt'
+            : row.ket_qua_xet,
+      }
     })
-    addChart('contest_rounds', rounds)
-    const results = rowsFor(datasets, 'contest_results')
     const outcomes = groupedChart('Đạt yêu cầu / Không đạt theo cuộc thi', results, 'cuoc_thi_id', 'ket_qua_xet', '__count__')
     addChart('contest_results', outcomes)
     const ct02Scores = results.filter((row) => String(row.cuoc_thi_id).toUpperCase() === 'CT02' && numberValue(row.tong_diem) != null)
@@ -369,8 +386,8 @@ function dashboardMetrics(
     if (lowestQuestions.length) notes.push(`Ba câu có tỷ lệ trả lời đúng thấp nhất: ${lowestQuestions.join('; ')}.`)
     const lowSample = rowsFor(datasets, 'submission_failures_by_province').filter((row) => Number(row.tong_luot_nop) <= 1)
     if (lowSample.length) notes.push(`${lowSample.map((row) => formatCell(row.tinh_thanh)).join(' và ')} chỉ có 1 lượt nộp; tỷ lệ chưa đáng tin cậy.`)
-  } else if (tab === 'Đối tác') {
-    title = `Tài trợ & Đối tác ${period.replace('-', '/')}`
+  } else if (dashboardTab === 'Đối tác') {
+    title = `${tab} ${period.replace('-', '/')}`
     const sponsors = combineRows(rowsFor(datasets, 'sponsor_summary'))
     kpis = [
       { label: 'Hợp đồng đã ký', value: count(sponsors.hop_dong_da_ky) },
@@ -415,11 +432,23 @@ function dashboardMetrics(
       { name: 'Hoa hồng', values: suppliers.map((row) => numberValue(row.hoa_hong)) },
     ], 'bar', { direction: 'col', grouping: 'clustered', showValues: true })
     addChart('supplier_list', supplierRevenue)
+    const partnerConversions = rowsFor(datasets, 'partner_referral_conversion')
+      .slice()
+      .sort((a, b) => (numberValue(b.so_ho_so_duoc_ghi_nhan) ?? 0) - (numberValue(a.so_ho_so_duoc_ghi_nhan) ?? 0))
+      .slice(0, 15)
+    const partnerConversionChart = chart('Hồ sơ ghi nhận và thanh toán theo đối tác', partnerConversions.map((row) =>
+      formatCell(row.ten_doanh_nghiep),
+    ), [
+      { name: 'Hồ sơ ghi nhận', values: partnerConversions.map((row) => numberValue(row.so_ho_so_duoc_ghi_nhan)) },
+      { name: 'Đã thanh toán', values: partnerConversions.map((row) => numberValue(row.so_ho_so_da_thanh_toan)) },
+    ], 'bar', { direction: 'bar', grouping: 'clustered', showValues: true })
+    addChart('partner_referral_conversion', partnerConversionChart)
+    if (partnerConversions.length) notes.push('Phễu đối tác hiện dừng ở thanh toán thành công; hệ thống chưa có dữ liệu điểm danh tham dự theo hồ sơ giới thiệu.')
     const province = rowsChart('Doanh thu đối tác theo tỉnh/thành', rowsFor(datasets, 'sponsor_revenue_by_province'), 'tinh_thanh',
       [{ key: 'doanh_thu', name: 'Doanh thu' }], 'doughnut', { showValues: true, showPercent: true })
     addChart('sponsor_revenue_by_province', province)
     const trendRows = rowsFor(datasets, 'sponsor_trend')
-    const trend = chart('Xu hướng tài trợ', trendRows.map((row) => `${dateLabel(row.ngay)} · ${formatCell(row.bang_dau)}`), [
+    const trend = chart('Xu hướng doanh thu từ doanh nghiệp cung cấp thí sinh', trendRows.map((row) => `${dateLabel(row.ngay)} · ${formatCell(row.bang_dau)}`), [
       { name: 'Doanh thu tài trợ đã thu', values: trendRows.map((row) => numberValue(row.doanh_thu)), chartType: 'bar' },
       { name: 'Lượt đăng ký toàn hệ thống', values: trendRows.map((row) => numberValue(row.so_dang_ky)), chartType: 'line' },
     ], 'combo', { direction: 'col', grouping: 'clustered', showValues: true })
@@ -432,8 +461,8 @@ function dashboardMetrics(
       { name: 'Chờ thanh toán', values: dailyRows.map((row) => numberValue(row.cho_thanh_toan)), chartType: 'line' },
     ], 'combo', { direction: 'col', grouping: 'stacked', showValues: true })
     addChart('sponsor_daily_revenue', daily)
-  } else if (tab === 'Bảo mật') {
-    title = `Bảo mật & Nhập dữ liệu ${period.replace('-', '/')}`
+  } else if (dashboardTab === 'Bảo mật') {
+    title = `${tab} ${period.replace('-', '/')}`
     const imports = rowsFor(datasets, 'import_sessions')
     const tableByImportId = new Map(imports.map((row) => [String(row.import_id), row.ten_bang_dich]))
     const errors = rowsFor(datasets, 'import_errors').map((row) => ({
@@ -461,13 +490,19 @@ function dashboardMetrics(
     const typeChart = rowsChart('Loại lỗi phổ biến', errorTypes.slice().sort((a, b) => Number(b.so_luong) - Number(a.so_luong)), 'ma_loi',
       [{ key: 'so_luong', name: 'Số dòng' }], 'bar', { direction: 'bar', showValues: true })
     addChart('import_errors', typeChart)
+    const qualityRows = aggregateSum(rowsFor(datasets, 'import_quality'), 'ten_bang_dich', 'so_dong_loi')
+      .sort((a, b) => Number(b.tong_gia_tri) - Number(a.tong_gia_tri))
+      .slice(0, 15)
+    const qualityChart = rowsChart('Lỗi nhập liệu theo bảng', qualityRows, 'ten_bang_dich',
+      [{ key: 'tong_gia_tri', name: 'Số dòng lỗi' }], 'bar', { direction: 'bar', showValues: true })
+    addChart('import_quality', qualityChart)
     const audits = rowsFor(datasets, 'security_log')
     if (imports.some((row) => Number(row.tong_so_dong) !== Number(row.so_dong_thanh_cong) + Number(row.so_dong_loi))) {
       notes.push('Một số phiên có chênh lệch giữa tổng dòng và dòng thành công + dòng lỗi; vui lòng kiểm tra chi tiết theo tệp.')
     }
     if (audits.some((row) => !row.ho_ten)) notes.push('Cột Họ và tên có dữ liệu trống nên chưa thể thống kê thao tác theo người dùng.')
     if (audits.length && audits.every((row) => formatCell(row.trang_thai) === 'Thành công')) notes.push('100% thao tác trong nhật ký có trạng thái Thành công.')
-  } else if (tab === 'Hỗ trợ') {
+  } else if (dashboardTab === 'Hỗ trợ') {
     title = `Hỗ trợ & FAQ ${period.replace('-', '/')}`
     const supportRows = rowsFor(datasets, 'support_conversations')
     const answered = supportRows.filter((row) => formatCell(row.trang_thai) === 'Đã trả lời').length
@@ -538,6 +573,12 @@ function dashboardMetrics(
     const repeatedQuestions = rowsChart('Top 10 câu hỏi lặp lại nhiều nhất', questionCounts, 'noi_dung_hoi',
       [{ key: 'so_luong', name: 'Số lượt hỏi' }], 'bar', { direction: 'bar', showValues: true })
     addChart('support_conversations', repeatedQuestions)
+    const unansweredAges = aggregateSum(rowsFor(datasets, 'support_unanswered_age'),
+      'nhom_tuoi_chua_tra_loi', 'so_cau_chua_tra_loi')
+    const unansweredAgeChart = rowsChart('Câu hỏi chưa trả lời theo thời gian chờ', unansweredAges,
+      'nhom_tuoi_chua_tra_loi', [{ key: 'tong_gia_tri', name: 'Số câu hỏi' }], 'bar',
+      { direction: 'col', showValues: true })
+    addChart('support_unanswered_age', unansweredAgeChart)
     const usedDocuments = aggregateCount(supportRows.filter((row) => row.tai_lieu_id != null), 'tai_lieu_id')
       .sort((a, b) => Number(b.so_luong) - Number(a.so_luong))
     const faqDocuments = rowsChart('Tài liệu FAQ được dùng để trả lời', usedDocuments, 'tai_lieu_id',
@@ -546,15 +587,21 @@ function dashboardMetrics(
   }
 
   const customChartReportIdsByTab: Record<string, string[]> = {
+    'Vận hành thí sinh': ['student_summary', 'student_status', 'student_schools', 'student_school_scores'],
+    'Tài chính': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
+    Marketing: ['lead_pipeline', 'student_utm'],
+    'Tài trợ/đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'sponsor_revenue_by_province', 'sponsor_trend'],
+    'Học thuật/kết quả thi': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_results', 'contest_top56', 'contest_finalists', 'submission_details'],
+    'Hệ thống': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
+    'Hỗ trợ': ['support_by_status', 'support_by_entity', 'support_faq_summary', 'support_faq_categories', 'support_conversations'],
     'Tổng quan': ['overview_summary', 'lead_pipeline', 'overview_progress', 'overview_enrollment_funnel'],
     'Thí sinh': ['student_summary', 'student_status', 'student_schools', 'student_school_scores', 'student_utm'],
     'Doanh thu': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
-    'Học vụ': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_results', 'contest_top56', 'contest_finalists', 'submission_details', 'practice_top15'],
-    'Đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'sponsor_revenue_by_province', 'sponsor_trend', 'sponsor_daily_revenue'],
-    'Bảo mật': ['import_sessions', 'import_errors', 'security_log'],
-    'Hỗ trợ': ['support_by_status', 'support_by_entity', 'support_faq_summary', 'support_faq_categories', 'support_conversations'],
+    'Học vụ': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_results', 'contest_top56', 'contest_finalists', 'submission_details'],
+    'Đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'partner_referral_conversion', 'sponsor_revenue_by_province', 'sponsor_trend', 'sponsor_daily_revenue'],
+    'Bảo mật': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
   }
-  return { title, kpis, notes, charts, customChartReportIds: customChartReportIdsByTab[tab] ?? [] }
+  return { title, kpis, notes, charts, customChartReportIds: customChartReportIdsByTab[tab] ?? customChartReportIdsByTab[dashboardTab] ?? [] }
 }
 
 function aggregateByDate(

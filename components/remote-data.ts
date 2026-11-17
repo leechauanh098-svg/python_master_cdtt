@@ -121,6 +121,7 @@ const fieldLabels: Record<string, string> = {
   so_dong_thanh_cong: 'Số dòng thành công',
   so_dong_loi: 'Số dòng lỗi',
   tong_so_dong: 'Tổng số dòng',
+  tong_doanh_nghiep: 'Tổng doanh nghiệp',
   ten_bang_dich: 'Tên bảng đích',
   ten_file: 'Tên tệp',
   ten_hien_thi: 'Tên hiển thị',

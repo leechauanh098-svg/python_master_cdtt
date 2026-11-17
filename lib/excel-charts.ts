@@ -189,13 +189,10 @@ function chartSeries(series: ChartSeries, index: number, categories: string[], c
     : series.color
       ? `<c:spPr><a:solidFill><a:srgbClr val="${series.color.replace(/^#/, '')}"/></a:solidFill></c:spPr>`
       : ''
-  const dataLabels = data.type !== 'pie' && data.type !== 'doughnut' && (data.showValues || data.showPercent)
-    ? `<c:dLbls><c:showLegendKey val="0"/><c:showVal val="${data.showValues ? 1 : 0}"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="${data.showPercent ? 1 : 0}"/></c:dLbls>`
-    : ''
   const values = data.type === 'scatter'
     ? `<c:xVal>${literalNumbers(series.xValues ?? [])}</c:xVal><c:yVal>${literalNumbers(series.values)}</c:yVal>`
     : `<c:cat>${literalString(categories)}</c:cat><c:val>${literalNumbers(series.values)}</c:val>`
-  return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${xmlEscape(series.name)}</c:v></c:tx>${seriesFill}${pointColors}${dataLabels}${values}</c:ser>`
+  return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${xmlEscape(series.name)}</c:v></c:tx>${seriesFill}${pointColors}${values}</c:ser>`
 }
 
 function funnelSeries(data: ChartData): string {
@@ -207,8 +204,7 @@ function funnelSeries(data: ChartData): string {
   const pointColors = data.categories.map((_, index) =>
     `<c:dPt><c:idx val="${index}"/><c:spPr><a:solidFill><a:schemeClr val="accent${index % 6 + 1}"/></a:solidFill></c:spPr></c:dPt>`,
   ).join('')
-  const dataLabels = '<c:dLbls><c:dLblPos val="ctr"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/></c:dLbls>'
-  const visibleSeries = `<c:ser><c:idx val="1"/><c:order val="1"/><c:tx><c:v>${xmlEscape(stages.name)}</c:v></c:tx>${pointColors}${dataLabels}<c:cat>${literalString(data.categories)}</c:cat><c:val>${literalNumbers(stages.values)}</c:val></c:ser>`
+  const visibleSeries = `<c:ser><c:idx val="1"/><c:order val="1"/><c:tx><c:v>${xmlEscape(stages.name)}</c:v></c:tx>${pointColors}<c:cat>${literalString(data.categories)}</c:cat><c:val>${literalNumbers(stages.values)}</c:val></c:ser>`
   return `${invisibleSeries}${visibleSeries}`
 }
 
@@ -230,17 +226,19 @@ function chartXml(title: string, data: ChartData): string {
     .filter(({ item }) => item.chartType === 'line')
     .map(({ item, index }) => chartSeries(item, index, data.categories, false, data))
     .join('')
-  const pieLabels = `<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showPercent val="${data.showPercent === false ? 0 : 1}"/><c:showCatName val="0"/><c:showSerName val="0"/></c:dLbls>`
+  const hasComboLineSeries = comboLineSeries.length > 0
   const plot = data.type === 'doughnut'
-    ? `<c:doughnutChart><c:varyColors val="1"/>${series}${pieLabels}<c:firstSliceAng val="0"/><c:holeSize val="65"/></c:doughnutChart>`
+    ? `<c:doughnutChart><c:varyColors val="1"/>${series}<c:firstSliceAng val="0"/><c:holeSize val="65"/></c:doughnutChart>`
     : data.type === 'pie'
-      ? `<c:pieChart><c:varyColors val="1"/>${series}${pieLabels}<c:firstSliceAng val="0"/></c:pieChart>`
+      ? `<c:pieChart><c:varyColors val="1"/>${series}<c:firstSliceAng val="0"/></c:pieChart>`
     : data.type === 'funnel'
       ? `<c:barChart><c:barDir val="bar"/><c:grouping val="stacked"/><c:varyColors val="0"/>${series}<c:gapWidth val="35"/><c:overlap val="100"/><c:axId val="48650112"/><c:axId val="48672768"/></c:barChart>`
     : data.type === 'line'
       ? `<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${series}<c:marker val="1"/><c:smooth val="0"/><c:axId val="48650112"/><c:axId val="48672768"/></c:lineChart>`
-    : data.type === 'combo'
+    : data.type === 'combo' && hasComboLineSeries
       ? `<c:barChart><c:barDir val="${data.direction ?? 'col'}"/><c:grouping val="${data.grouping ?? 'clustered'}"/><c:varyColors val="0"/>${comboBarSeries}<c:gapWidth val="80"/><c:overlap val="${data.grouping === 'stacked' || data.grouping === 'percentStacked' ? 100 : 0}"/><c:axId val="48650112"/><c:axId val="48672768"/></c:barChart><c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>${comboLineSeries}<c:marker val="1"/><c:smooth val="0"/><c:axId val="48650112"/><c:axId val="48672769"/></c:lineChart>`
+    : data.type === 'combo'
+      ? `<c:barChart><c:barDir val="${data.direction ?? 'col'}"/><c:grouping val="${data.grouping ?? 'clustered'}"/><c:varyColors val="0"/>${comboBarSeries}<c:gapWidth val="80"/><c:overlap val="${data.grouping === 'stacked' || data.grouping === 'percentStacked' ? 100 : 0}"/><c:axId val="48650112"/><c:axId val="48672768"/></c:barChart>`
     : data.type === 'gantt'
       ? `<c:barChart><c:barDir val="bar"/><c:grouping val="stacked"/><c:varyColors val="0"/>${series}<c:gapWidth val="45"/><c:overlap val="100"/><c:axId val="48650112"/><c:axId val="48672768"/></c:barChart>`
       : data.type === 'scatter'
@@ -248,10 +246,10 @@ function chartXml(title: string, data: ChartData): string {
       : `<c:barChart><c:barDir val="${data.direction ?? 'col'}"/><c:grouping val="${data.grouping ?? 'clustered'}"/><c:varyColors val="0"/>${series}<c:gapWidth val="80"/><c:overlap val="${data.grouping === 'stacked' || data.grouping === 'percentStacked' ? 100 : 0}"/><c:axId val="48650112"/><c:axId val="48672768"/></c:barChart>`
   const horizontal = data.direction === 'bar'
   const axes = data.type === 'pie' || data.type === 'doughnut' ? '' : data.type === 'funnel' || data.type === 'gantt'
-    ? `<c:catAx><c:axId val="48650112"/><c:scaling><c:orientation val="maxMin"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:tickLblPos val="nextTo"/><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/>${data.type === 'gantt' && data.axisMin != null ? `<c:min val="${data.axisMin}"/>` : ''}${data.type === 'gantt' && data.axisMax != null ? `<c:max val="${data.axisMax}"/>` : ''}</c:scaling><c:delete val="${data.type === 'funnel' ? 1 : 0}"/><c:axPos val="b"/><c:majorGridlines/><c:numFmt formatCode="${data.type === 'gantt' ? 'd/m/yyyy' : '#,##0'}" sourceLinked="0"/><c:tickLblPos val="${data.type === 'funnel' ? 'none' : 'nextTo'}"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>`
+    ? `<c:catAx><c:axId val="48650112"/><c:scaling><c:orientation val="maxMin"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:tickLblPos val="nextTo"/><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/>${data.type === 'gantt' && data.axisMin != null ? `<c:min val="${data.axisMin}"/>` : ''}${data.type === 'gantt' && data.axisMax != null ? `<c:max val="${data.axisMax}"/>` : ''}</c:scaling><c:delete val="${data.type === 'funnel' ? 1 : 0}"/><c:axPos val="b"/><c:majorGridlines/><c:numFmt formatCode="${data.type === 'gantt' ? 'd/m' : '#,##0'}" sourceLinked="0"/>${data.type === 'gantt' ? '<c:majorTickMark val="none"/><c:minorTickMark val="none"/>' : ''}<c:tickLblPos val="${data.type === 'funnel' ? 'none' : 'nextTo'}"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/><c:crossBetween val="between"/>${data.type === 'gantt' ? '<c:majorUnit val="7"/>' : ''}</c:valAx>`
     : data.type === 'scatter'
       ? `<c:valAx><c:axId val="48650112"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/></c:valAx><c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="#,##0.##" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/></c:valAx>`
-    : data.type === 'combo'
+    : data.type === 'combo' && hasComboLineSeries
       ? `<c:catAx><c:axId val="48650112"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:tickLblPos val="nextTo"/><c:txPr><a:bodyPr rot="-2700000"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="vi-VN"/></a:p></c:txPr><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx><c:valAx><c:axId val="48672769"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="r"/><c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48650112"/><c:crosses val="max"/><c:crossBetween val="between"/></c:valAx>`
     : horizontal
       ? `<c:catAx><c:axId val="48650112"/><c:scaling><c:orientation val="maxMin"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:tickLblPos val="nextTo"/><c:crossAx val="48672768"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="48672768"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:tickLblPos val="nextTo"/><c:crossAx val="48650112"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>`

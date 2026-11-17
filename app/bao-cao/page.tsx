@@ -27,7 +27,16 @@ import { addExcelCharts, type ExcelChartSource } from '@/lib/excel-charts'
 import { buildExcelDashboard } from '@/lib/excel-dashboards'
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
-type ReportTab = 'Tổng quan' | 'Thí sinh' | 'Doanh thu' | 'Học vụ' | 'Đối tác' | 'Hỗ trợ' | 'Bảo mật'
+type ReportTab =
+  | 'Tổng quan'
+  | 'Vận hành thí sinh'
+  | 'Tài chính'
+  | 'Marketing'
+  | 'Tài trợ/đối tác'
+  | 'Học thuật/kết quả thi'
+  | 'Hỗ trợ'
+  | 'Hệ thống'
+type ExportFormat = 'excel' | 'word' | 'pdf' | 'csv'
 type SectionDefinition = {
   reportId: string
   title: string
@@ -46,9 +55,10 @@ type ReportExportDataset = {
   emptyMessage?: string
 }
 
-type ReportCategory = { permission: string; sections: SectionDefinition[] }
+type ReportCategory = { permissions: string[]; sections: SectionDefinition[] }
 
 const emptyReportColumns: Record<string, string[]> = {
+  student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
   transaction_details: [
     'nguon',
@@ -69,8 +79,24 @@ const emptyReportColumns: Record<string, string[]> = {
     'cap_do_tai_tro',
     'loai_tai_tro',
     'thuc_thu',
-    'brand_reach',
-    'luot_tuong_tac',
+  ],
+  student_utm: ['nguon_utm', 'chien_dich', 'luot_tiep_can', 'so_dang_ky', 'chi_phi', 'doanh_thu', 'roi_pct'],
+  practice_top15: ['hang', 'thi_sinh_id', 'ho_ten', 'truong_hoc', 'so_bai_hoan_thanh'],
+  support_conversations: [
+    'qna_id',
+    'thi_sinh_id',
+    'doanh_nghiep_id',
+    'doi_tuong_id',
+    'loai_doi_tuong',
+    'ten_hien_thi',
+    'noi_dung_hoi',
+    'noi_dung_tra_loi',
+    'tai_lieu_id',
+    'thoi_gian',
+    'kenh_tuong_tac',
+    'trang_thai',
+    'danh_gia_hai_long',
+    'nhan_vien_id_ho_tro',
   ],
   supplier_list: [
     'doanh_nghiep_id',
@@ -81,6 +107,33 @@ const emptyReportColumns: Record<string, string[]> = {
     'hoa_hong',
   ],
   support_top_questions: ['thu_tu', 'cau_hoi', 'so_lan_xuat_hien'],
+  partner_referral_conversion: [
+    'doanh_nghiep_id',
+    'ten_doanh_nghiep',
+    'so_ho_so_duoc_ghi_nhan',
+    'so_ho_so_da_thanh_toan',
+    'so_ho_so_chua_thanh_toan',
+    'so_ho_so_dang_cho',
+    'so_giao_dich_that_bai_huy',
+    'ty_le_chuyen_doi_thanh_toan_pct',
+  ],
+  support_unanswered_age: [
+    'kenh_tuong_tac',
+    'nhom_tuoi_chua_tra_loi',
+    'so_cau_chua_tra_loi',
+    'tuoi_trung_binh_gio',
+    'tuoi_lon_nhat_gio',
+  ],
+  import_quality: [
+    'ten_bang_dich',
+    'cot_loi',
+    'ma_loi',
+    'mo_ta_loi',
+    'muc_do',
+    'so_dong_loi',
+    'so_phien_anh_huong',
+    'so_file_anh_huong',
+  ],
   import_sessions: [
     'import_id',
     'ten_file',
@@ -106,82 +159,88 @@ const emptyReportColumns: Record<string, string[]> = {
 
 const reportSections: Record<ReportTab, ReportCategory> = {
   'Tổng quan': {
-    permission: 'BAO_CAO_TONG_QUAN',
+    permissions: ['BAO_CAO_TONG_QUAN'],
     sections: [
-      { reportId: 'overview_summary', title: 'Chỉ số tổng quan', description: 'Chỉ số thí sinh, tham gia và doanh thu trong kỳ.', visualization: 'metrics' },
-      { reportId: 'lead_pipeline', title: 'Lead hợp nhất theo nguồn', description: 'Đối chiếu lead từ biểu mẫu, Lead Ads và đăng ký web theo trạng thái hồ sơ/thanh toán.', visualization: 'table' },
-      { reportId: 'overview_progress', title: 'Tiến độ chỉ tiêu', description: 'Tỷ lệ hoàn thành và số liệu chi tiết của từng chỉ tiêu.', visualization: 'bar-table' },
-      { reportId: 'overview_comparison', title: 'So sánh đăng ký với kỳ trước', visualization: 'metrics' },
-      { reportId: 'overview_enrollment_funnel', title: 'Phễu tuyển sinh', description: 'Tiếp cận → Đăng ký → Tham gia.', visualization: 'funnel' },
-      { reportId: 'overview_registration_trend', title: 'Khoảng 16 ngày có nhiều lượt đăng ký nhất', description: '16 ngày liên tiếp có tổng lượt đăng ký cao nhất trong kỳ.', visualization: 'area' },
+      { reportId: 'overview_summary', title: 'Chỉ số tổng quan', description: 'Tổng hợp đăng ký, tham gia và doanh thu trong kỳ.', visualization: 'metrics', requiredPermission: 'BAO_CAO_TONG_QUAN' },
+      { reportId: 'overview_comparison', title: 'So sánh đăng ký với kỳ trước', visualization: 'metrics', requiredPermission: 'BAO_CAO_TONG_QUAN' },
+      { reportId: 'overview_progress', title: 'Tiến độ chỉ tiêu', description: 'Tỷ lệ hoàn thành và số liệu chi tiết của từng chỉ tiêu.', visualization: 'bar-table', requiredPermission: 'BAO_CAO_TONG_QUAN' },
     ],
   },
-  'Thí sinh': {
-    permission: 'BAO_CAO_THISINH',
+  'Vận hành thí sinh': {
+    permissions: ['BAO_CAO_TONG_QUAN', 'BAO_CAO_THISINH'],
     sections: [
-      { reportId: 'student_summary', title: 'Tổng quan thí sinh', visualization: 'metrics' },
-      { reportId: 'student_status', title: 'Trạng thái hồ sơ', visualization: 'pie' },
-      { reportId: 'student_schools', title: 'Thí sinh theo trường', visualization: 'bar-horizontal' },
-      { reportId: 'student_school_scores', title: 'Kết quả theo trường và bảng', visualization: 'bar-table' },
-      { reportId: 'student_utm', title: 'Hiệu quả theo nguồn UTM', visualization: 'table' },
+      { reportId: 'student_summary', title: 'Tổng quan thí sinh', visualization: 'metrics', requiredPermission: 'BAO_CAO_THISINH' },
+      { reportId: 'student_status', title: 'Tình trạng thanh toán trong kỳ', description: 'Đối chiếu đăng ký thi với thanh toán thành công trong kỳ.', visualization: 'pie', requiredPermission: 'BAO_CAO_THISINH' },
+      { reportId: 'overview_enrollment_funnel', title: 'Phễu tuyển sinh', description: 'Theo dõi chuyển đổi từ tiếp cận đến đăng ký và tham gia.', visualization: 'funnel', requiredPermission: 'BAO_CAO_TONG_QUAN' },
+      { reportId: 'overview_registration_trend', title: 'Khoảng 16 ngày có nhiều lượt đăng ký nhất', description: '16 ngày liên tiếp có tổng lượt đăng ký cao nhất trong kỳ.', visualization: 'area', requiredPermission: 'BAO_CAO_TONG_QUAN' },
+      { reportId: 'student_schools', title: 'Số thí sinh theo trường', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_THISINH' },
+      { reportId: 'student_school_scores', title: 'Số thí sinh theo trường của từng bảng đấu', visualization: 'bar-table', requiredPermission: 'BAO_CAO_THISINH' },
     ],
   },
-  'Doanh thu': {
-    permission: 'BAO_CAO_DOANH_THU',
+  'Tài chính': {
+    permissions: ['BAO_CAO_DOANH_THU', 'BAO_CAO_DOANH_THU_CHI_TIET', 'BAO_CAO_DOI_TAC'],
     sections: [
-      { reportId: 'revenue_summary', title: 'Tổng quan doanh thu', visualization: 'metrics' },
-      { reportId: 'payment_funnel', title: 'Phễu thanh toán', visualization: 'funnel' },
-      { reportId: 'revenue_by_province', title: 'Doanh thu theo tỉnh/thành', visualization: 'bar-horizontal' },
-      { reportId: 'revenue_by_region', title: 'Doanh thu theo 3 miền', visualization: 'bar-horizontal' },
-      { reportId: 'revenue_trend', title: 'Xu hướng doanh thu theo ngày', visualization: 'line' },
-      { reportId: 'revenue_by_channel', title: 'Doanh thu theo kênh', visualization: 'pie' },
-      { reportId: 'revenue_reconciliation', title: 'Giao dịch chờ đối soát quá 48 giờ', visualization: 'table' },
+      { reportId: 'revenue_summary', title: 'Tổng quan doanh thu', visualization: 'metrics', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'payment_funnel', title: 'Phễu thanh toán', visualization: 'funnel', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'revenue_trend', title: 'Xu hướng doanh thu theo ngày', visualization: 'line', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'revenue_by_channel', title: 'Doanh thu theo kênh', visualization: 'pie', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'revenue_by_region', title: 'Doanh thu theo 3 miền', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'revenue_by_province', title: 'Doanh thu theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'revenue_reconciliation', title: 'Giao dịch chờ đối soát quá 48 giờ', visualization: 'table', requiredPermission: 'BAO_CAO_DOANH_THU' },
+      { reportId: 'sponsor_daily_revenue', title: 'Doanh thu và hoa hồng theo ngày', visualization: 'area', requiredPermission: 'BAO_CAO_DOI_TAC' },
       { reportId: 'transaction_details', title: 'Chi tiết giao dịch', visualization: 'table', requiredPermission: 'BAO_CAO_DOANH_THU_CHI_TIET' },
     ],
   },
-  'Học vụ': {
-    permission: 'BAO_CAO_HOC_VU',
+  'Marketing': {
+    permissions: ['BAO_CAO_TONG_QUAN', 'BAO_CAO_THISINH'],
     sections: [
-      { reportId: 'submission_status', title: 'Trạng thái bài nộp', visualization: 'pie' },
-      { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal' },
-      { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal' },
-      { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table' },
-      { reportId: 'contest_results', title: 'Kết quả vòng sơ loại', visualization: 'table' },
-      { reportId: 'contest_top56', title: '56 thí sinh có thứ hạng cao nhất', description: 'Hiển thị thí sinh có kết quả vòng sơ loại đã chấm điểm; nếu chưa đủ 56, hệ thống chưa có đủ bài thi hợp lệ.', visualization: 'bar-horizontal' },
-      { reportId: 'contest_finalists', title: 'Danh sách thí sinh chung kết và xác nhận tham gia', visualization: 'table' },
-      { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table' },
-      { reportId: 'practice_top15', title: 'Top 15 thí sinh luyện tập', description: 'Xếp hạng theo số bài luyện tập đã nộp hoặc đã chấm trong kỳ; chỉ tính bài được phân loại là luyện tập.', visualization: 'table' },
+      { reportId: 'lead_pipeline', title: 'Lead theo nguồn và trạng thái', description: 'Đối chiếu lead từ biểu mẫu, Lead Ads và đăng ký web theo trạng thái hồ sơ/thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_TONG_QUAN' },
+      { reportId: 'student_utm', title: 'Nguồn lead, chi phí và ROI quảng cáo', description: 'Tổng hợp lượt tiếp cận, đăng ký, chi phí, doanh thu và ROI theo nguồn/campaign UTM.', visualization: 'table', requiredPermission: 'BAO_CAO_THISINH' },
     ],
   },
-  'Đối tác': {
-    permission: 'BAO_CAO_DOI_TAC',
+  'Tài trợ/đối tác': {
+    permissions: ['BAO_CAO_DOI_TAC'],
     sections: [
-      { reportId: 'sponsor_summary', title: 'Tổng quan tài trợ và đối tác', visualization: 'metrics' },
-      { reportId: 'sponsor_funnel', title: 'Phễu tài trợ', visualization: 'funnel' },
-      { reportId: 'sponsor_tiers', title: 'Cơ cấu cấp tài trợ', visualization: 'pie' },
-      { reportId: 'sponsor_list', title: 'Giá trị tài trợ và Brand reach', visualization: 'table' },
-      { reportId: 'supplier_list', title: 'Đối soát doanh nghiệp cung cấp thí sinh', visualization: 'table' },
-      { reportId: 'sponsor_revenue_by_province', title: 'Doanh thu đối tác theo tỉnh/thành', visualization: 'bar-horizontal' },
-      { reportId: 'sponsor_trend', title: 'Xu hướng tài trợ', visualization: 'line' },
-      { reportId: 'sponsor_daily_revenue', title: 'Doanh thu và hoa hồng theo ngày', visualization: 'area' },
+      { reportId: 'sponsor_summary', title: 'Thực thu và hợp đồng tài trợ', description: 'Tổng hợp thực thu, số hợp đồng đã ký, doanh thu đối tác và hoa hồng.', visualization: 'metrics', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'sponsor_funnel', title: 'Phễu tài trợ và tiến độ hợp đồng', visualization: 'funnel', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'sponsor_tiers', title: 'Cơ cấu cấp tài trợ', visualization: 'pie', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'sponsor_list', title: 'Thực thu và hiệu quả truyền thông', description: 'Theo dõi thực thu theo nhà tài trợ.', visualization: 'table', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'sponsor_revenue_by_province', title: 'Doanh thu đối tác theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'sponsor_trend', title: 'Xu hướng doanh thu từ doanh nghiệp cung cấp thí sinh', visualization: 'line', requiredPermission: 'BAO_CAO_DOI_TAC' },
+      { reportId: 'supplier_list', title: 'Đối soát doanh nghiệp cung cấp thí sinh', visualization: 'table', requiredPermission: 'BAO_CAO_DOI_TAC' },
+    ],
+  },
+  'Học thuật/kết quả thi': {
+    permissions: ['BAO_CAO_HOC_VU'],
+    sections: [
+      { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_results', title: 'Kết quả vòng sơ loại', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_top56', title: '56 thí sinh có thứ hạng cao nhất', description: 'Hiển thị thí sinh có kết quả vòng sơ loại đã chấm điểm; nếu chưa đủ 56, hệ thống chưa có đủ bài thi hợp lệ.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_finalists', title: 'Danh sách thí sinh chung kết và xác nhận tham gia', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
     ],
   },
   'Hỗ trợ': {
-    permission: 'BAO_CAO_HO_TRO',
+    permissions: ['BAO_CAO_HO_TRO'],
     sections: [
-      { reportId: 'support_by_status', title: 'Hội thoại theo trạng thái', visualization: 'pie' },
-      { reportId: 'support_by_entity', title: 'Hội thoại theo nhóm đối tượng', visualization: 'bar' },
-      { reportId: 'support_faq_summary', title: 'Hiệu quả bộ câu hỏi FAQ', visualization: 'metrics' },
-      { reportId: 'support_top_questions', title: '50 câu hỏi thường gặp nhất', description: 'Xếp theo số lần xuất hiện giảm dần trong kỳ báo cáo.', visualization: 'table' },
-      { reportId: 'support_faq_categories', title: 'Câu hỏi theo danh mục', visualization: 'bar-horizontal' },
+      { reportId: 'support_by_status', title: 'Hội thoại theo trạng thái', visualization: 'pie', requiredPermission: 'BAO_CAO_HO_TRO' },
+      { reportId: 'support_by_entity', title: 'Hội thoại theo nhóm đối tượng', visualization: 'bar', requiredPermission: 'BAO_CAO_HO_TRO' },
+      { reportId: 'support_conversations', title: 'Danh sách hội thoại Q&A', description: 'Xem tối đa 200 hội thoại gần đây cùng nội dung hỏi, trả lời và trạng thái xử lý.', visualization: 'table', requiredPermission: 'BAO_CAO_HO_TRO' },
+      { reportId: 'support_faq_summary', title: 'Hiệu quả bộ câu hỏi FAQ', visualization: 'metrics', requiredPermission: 'BAO_CAO_HO_TRO' },
+      { reportId: 'support_top_questions', title: 'Top câu hỏi thường gặp', description: 'Tối đa 50 câu hỏi, xếp từ được hỏi nhiều nhất đến ít nhất trong kỳ báo cáo.', visualization: 'table', requiredPermission: 'BAO_CAO_HO_TRO' },
+      { reportId: 'support_faq_categories', title: 'Câu hỏi theo danh mục', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HO_TRO' },
     ],
   },
-  'Bảo mật': {
-    permission: 'BAO_CAO_AN_NINH',
+  'Hệ thống': {
+    permissions: ['BAO_CAO_AN_NINH'],
     sections: [
-      { reportId: 'security_log', title: 'Nhật ký thao tác bảo mật', visualization: 'table' },
-      { reportId: 'import_sessions', title: 'Lịch sử các phiên nhập dữ liệu', visualization: 'table' },
-      { reportId: 'import_errors', title: 'Chi tiết lỗi nhập dữ liệu', visualization: 'table' },
+      { reportId: 'import_sessions', title: 'Lịch sử các phiên nhập dữ liệu', visualization: 'table', requiredPermission: 'BAO_CAO_AN_NINH' },
+      { reportId: 'import_errors', title: 'Chi tiết lỗi nhập dữ liệu', visualization: 'table', requiredPermission: 'BAO_CAO_AN_NINH' },
+      { reportId: 'import_quality', title: 'Lỗi nhập liệu theo bảng, cột và nguyên nhân', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_AN_NINH' },
+      { reportId: 'security_log', title: 'Nhật ký thao tác bảo mật', visualization: 'table', requiredPermission: 'BAO_CAO_AN_NINH' },
     ],
   },
 }
@@ -281,6 +340,36 @@ function exportRows(value: unknown): Record<string, unknown>[] {
   return value == null ? [] : [{ Giá_trị: value }]
 }
 
+function studentPaymentStatusRows(value: unknown): Record<string, unknown>[] | null {
+  const [summary] = exportRows(value)
+  if (!summary) return null
+
+  const registered = Number(summary.dang_ky_thi)
+  const paid = Number(summary.tham_gia_thuc_te)
+  if (!Number.isFinite(registered) || !Number.isFinite(paid)) return null
+
+  return [
+    { trang_thai: 'Đã thanh toán', so_luong: paid },
+    { trang_thai: 'Chưa thanh toán', so_luong: registered - paid },
+  ].filter((row) => Number(row.so_luong) > 0)
+}
+
+function aggregateImportQuality(value: unknown): Record<string, unknown>[] {
+  const totals = new Map<string, { name: string; errorCount: number }>()
+  for (const row of exportRows(value)) {
+    const name = String(row.ten_bang_dich ?? '').trim() || 'Không xác định'
+    const key = name.toLocaleLowerCase('vi')
+    const group = totals.get(key) ?? { name, errorCount: 0 }
+    const errorCount = Number(row.so_dong_loi)
+    if (Number.isFinite(errorCount)) group.errorCount += errorCount
+    totals.set(key, group)
+  }
+  return Array.from(totals.values(), ({ name, errorCount }) => ({
+    ten_bang_dich: name,
+    so_dong_loi: errorCount,
+  }))
+}
+
 function withoutOverviewMetrics(value: unknown): unknown {
   const hiddenKeys = new Set([
     'tu_ngay',
@@ -361,12 +450,14 @@ function ReportContent() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [requestNumber, setRequestNumber] = useState(0)
-  const [exportFormat, setExportFormat] = useState<'excel' | 'word' | 'pdf' | 'csv'>('excel')
   const [exportError, setExportError] = useState('')
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('excel')
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const tabs = Object.keys(reportSections) as ReportTab[]
   const options = useMemo(quarterOptions, [])
-  const allowedTabs = tabs.filter((tab) => reportAccess.permissions.includes(reportSections[tab].permission))
+  const allowedTabs = tabs.filter((tab) =>
+    reportSections[tab].permissions.some((permission) => reportAccess.permissions.includes(permission)),
+  )
   const selectedTab = allowedTabs.includes(activeTab) ? activeTab : allowedTabs[0]
   const currentReportTab = selectedTab ?? activeTab
   const sections = useMemo(
@@ -386,18 +477,15 @@ function ReportContent() {
     ...results,
     overview_summary: withoutOverviewMetrics(results.overview_summary),
     overview_registration_trend: peakRegistrationWindow(results.overview_registration_trend, period),
-    student_status: exportRows(results.student_status).map((row) => ({
-      ...row,
-      trang_thai: String(row.trang_thai ?? '').trim().toLocaleUpperCase('vi') === 'ĐÃ NỘP BÀI'
-        ? 'HOÀN THÀNH'
-        : row.trang_thai,
-    })),
+    student_status: studentPaymentStatusRows(results.student_summary),
     student_school_scores: exportRows(results.student_school_scores).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'ty_le_xuat_sac_pct')),
     ),
-    student_utm: exportRows(results.student_utm).map((row) =>
-      Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'roi_pct')),
+    student_utm: exportRows(results.student_utm),
+    sponsor_list: exportRows(results.sponsor_list).map((row) =>
+      Object.fromEntries(Object.entries(row).filter(([key]) => !['brand_reach', 'luot_tuong_tac'].includes(key.toLowerCase()))),
     ),
+    import_quality: aggregateImportQuality(results.import_quality),
   }), [period, results])
   const registrationTrendRows = exportRows(displayResults.overview_registration_trend)
   const registrationTrendStart = registrationTrendRows[0]?.ngay
@@ -433,16 +521,21 @@ function ReportContent() {
     })
   }
 
-  function downloadFile(blob: Blob, extension: string) {
+  function downloadFile(blob: Blob, extension: string, reportIds?: readonly string[]) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `bao-cao-${period}-${currentReportTab.toLocaleLowerCase('vi').replaceAll(' ', '-')}.${extension}`
+    const reportName = reportIds?.length === 1
+      ? reportIds[0] === 'support_top_questions'
+        ? '50-cau-hoi-thuong-gap'
+        : reportIds[0]
+      : currentReportTab.toLocaleLowerCase('vi').replaceAll(' ', '-')
+    link.download = `bao-cao-${period}-${reportName}.${extension}`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
-  async function exportReport(format = exportFormat, reportIds?: readonly string[]) {
+  async function exportReport(format: ExportFormat, reportIds?: readonly string[]) {
     setExportError('')
     const datasets = reportExportRows(true)
       .filter((dataset) => !reportIds || reportIds.includes(dataset.reportId))
@@ -467,7 +560,7 @@ function ReportContent() {
 <html lang="vi">
   <head>
     <meta charset="utf-8">
-    <title>${htmlEscape(reportIds?.includes('support_top_questions') ? '50 câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)} ${htmlEscape(period)}</title>
+    <title>${htmlEscape(reportIds?.includes('support_top_questions') ? 'Top câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)} ${htmlEscape(period)}</title>
     <style>
       @page { size: A4 landscape; margin: 18mm 16mm; }
       * { box-sizing: border-box; }
@@ -527,7 +620,7 @@ function ReportContent() {
     </style>
   </head>
   <body>
-    <h1>${htmlEscape(reportIds?.includes('support_top_questions') ? '50 câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)}</h1>
+    <h1>${htmlEscape(reportIds?.includes('support_top_questions') ? 'Top câu hỏi thường gặp' : `Báo cáo ${currentReportTab}`)}</h1>
     <p class="report-meta">Kỳ báo cáo: ${htmlEscape(period)}</p>
     <p class="report-time">Xuất lúc: ${htmlEscape(new Date().toLocaleString('vi-VN'))}</p>
     ${reportHtml}
@@ -552,14 +645,12 @@ function ReportContent() {
         }
         lines.push('')
       }
-      downloadFile(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }), 'csv')
+      downloadFile(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }), 'csv', reportIds)
       return
     }
 
     if (format === 'excel') {
-      const excelDatasets = datasets.filter(({ reportId }) =>
-        !['overview_comparison', 'contest_finalists', 'practice_top15'].includes(reportId),
-      )
+      const excelDatasets = datasets.filter((dataset) => dataset.reportId !== 'overview_summary')
       const usedNames = new Set<string>()
       const workbook = XLSX.utils.book_new()
       const chartSources: ExcelChartSource[] = []
@@ -591,8 +682,143 @@ function ReportContent() {
         left: { style: 'thin', color: { rgb: 'D8E1EC' } },
         right: { style: 'thin', color: { rgb: 'D8E1EC' } },
       }
+      const includeDashboardSheet = !reportIds || reportIds.length > 1 || reportIds.includes('overview_summary')
+      const detailSheetOffset = includeDashboardSheet ? 1 : 0
+      if (includeDashboardSheet) {
+        const dashboardColumnCount = 12
+        const dashboardRows: string[][] = []
+        const dashboardMerges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = []
+        const ensureDashboardRow = (rowIndex: number) => {
+          while (dashboardRows.length <= rowIndex) {
+            dashboardRows.push(Array.from({ length: dashboardColumnCount }, () => ''))
+          }
+        }
+
+        ensureDashboardRow(1)
+        dashboardRows[0][0] = dashboard.title
+        dashboardRows[1][0] = `Kỳ báo cáo: ${period}    ·    Xuất lúc: ${new Date().toLocaleString('vi-VN')}`
+        dashboardMerges.push(
+          { s: { r: 0, c: 0 }, e: { r: 0, c: dashboardColumnCount - 1 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: dashboardColumnCount - 1 } },
+        )
+
+        dashboard.kpis.forEach((metric, index) => {
+          const startRow = 3 + Math.floor(index / 4) * 4
+          const startColumn = (index % 4) * 3
+          ensureDashboardRow(startRow + 2)
+          dashboardRows[startRow][startColumn] = metric.label
+          dashboardRows[startRow + 1][startColumn] = metric.value
+          dashboardRows[startRow + 2][startColumn] = metric.detail ?? ''
+          for (let row = startRow; row <= startRow + 2; row += 1) {
+            dashboardMerges.push({
+              s: { r: row, c: startColumn },
+              e: { r: row, c: startColumn + 2 },
+            })
+          }
+        })
+
+        let contentRow = 3 + Math.ceil(dashboard.kpis.length / 4) * 4
+
+        const dashboardWorksheet = XLSX.utils.aoa_to_sheet(dashboardRows)
+        dashboardWorksheet['!merges'] = dashboardMerges
+        dashboardWorksheet['!cols'] = Array.from({ length: dashboardColumnCount }, () => ({ wch: 15 }))
+        dashboardWorksheet['!rows'] = []
+        dashboardWorksheet['!rows'][0] = { hpt: 36 }
+        dashboardWorksheet['!rows'][1] = { hpt: 24 }
+
+        const dashboardTitleStyle = {
+          fill: { fgColor: { rgb: '2563EB' } },
+          font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 20 },
+          alignment: { horizontal: 'left', vertical: 'center' },
+        }
+        const dashboardMetadataStyle = {
+          fill: { fgColor: { rgb: 'F1F5F9' } },
+          font: { color: { rgb: '64748B' }, sz: 10 },
+          alignment: { horizontal: 'left', vertical: 'center' },
+        }
+        const dashboardMetricColors = ['EFF6FF', 'DBEAFE', 'EFF6FF', 'DBEAFE']
+        const dashboardTileBorder = {
+          top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+          bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+          left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+          right: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        }
+        for (let column = 0; column < dashboardColumnCount; column += 1) {
+          const titleAddress = XLSX.utils.encode_cell({ r: 0, c: column })
+          const metadataAddress = XLSX.utils.encode_cell({ r: 1, c: column })
+          dashboardWorksheet[titleAddress] ??= { t: 's', v: '' }
+          dashboardWorksheet[metadataAddress] ??= { t: 's', v: '' }
+          dashboardWorksheet[titleAddress].s = dashboardTitleStyle
+          dashboardWorksheet[metadataAddress].s = dashboardMetadataStyle
+        }
+        dashboard.kpis.forEach((metric, index) => {
+          const startRow = 3 + Math.floor(index / 4) * 4
+          const startColumn = (index % 4) * 3
+          const fill = dashboardMetricColors[index % dashboardMetricColors.length]
+          for (let row = startRow; row <= startRow + 2; row += 1) {
+            dashboardWorksheet['!rows']![row] = { hpt: row === startRow + 1 ? 34 : 22 }
+            for (let column = startColumn; column < startColumn + 3; column += 1) {
+              const address = XLSX.utils.encode_cell({ r: row, c: column })
+              dashboardWorksheet[address] ??= { t: 's', v: '' }
+              dashboardWorksheet[address].s = {
+                fill: { fgColor: { rgb: fill } },
+                font: {
+                  color: { rgb: row === startRow + 1 ? '0F172A' : '475569' },
+                  bold: row !== startRow + 2,
+                  sz: row === startRow + 1 ? 16 : 10,
+                },
+                alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+                border: dashboardTileBorder,
+              }
+            }
+          }
+        })
+        if (dashboard.charts.length) {
+          contentRow += 1
+          ensureDashboardRow(contentRow)
+          dashboardRows[contentRow][0] = 'BIỂU ĐỒ TỔNG QUAN'
+          dashboardMerges.push({
+            s: { r: contentRow, c: 0 },
+            e: { r: contentRow, c: dashboardColumnCount - 1 },
+          })
+          dashboardWorksheet['!merges'] = dashboardMerges
+          for (let column = 0; column < dashboardColumnCount; column += 1) {
+            const address = XLSX.utils.encode_cell({ r: contentRow, c: column })
+            dashboardWorksheet[address] ??= { t: 's', v: '' }
+            dashboardWorksheet[address].s = {
+              fill: { fgColor: { rgb: '2563EB' } },
+              font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+              alignment: { horizontal: 'left', vertical: 'center' },
+            }
+          }
+          dashboardWorksheet['!rows']![contentRow] = { hpt: 24 }
+          const chartStartRow = contentRow + 1
+          dashboard.charts.forEach((item, index) => {
+            chartSources.push({
+              sheetIndex: 0,
+              title: item.title,
+              columns: [],
+              rows: [],
+              chartData: item,
+              anchor: {
+                column: index % 2 === 0 ? 0 : 6,
+                row: chartStartRow + Math.floor(index / 2) * 18,
+                widthColumns: 6,
+                heightRows: 16,
+              },
+            })
+          })
+          const lastChartRow = chartStartRow + Math.ceil(dashboard.charts.length / 2) * 18
+          dashboardWorksheet['!ref'] = XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: lastChartRow, c: dashboardColumnCount - 1 },
+          })
+        }
+        XLSX.utils.book_append_sheet(workbook, dashboardWorksheet, safeSheetName('Tổng quan', usedNames))
+      }
+
       excelDatasets.forEach(({ reportId, title, rows, visualization, hasData, emptyColumns, emptyMessage }, datasetIndex) => {
-        const sheetIndex = datasetIndex
+        const sheetIndex = datasetIndex + detailSheetOffset
         const columns = emptyColumns ?? Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
         const headerRow = 4
         const firstDataRow = headerRow + 1
@@ -717,7 +943,7 @@ function ReportContent() {
       })
       const workbookOutput = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
       const output = addExcelCharts(workbookOutput, chartSources)
-      downloadFile(new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx')
+      downloadFile(new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx', reportIds)
       return
     }
 
@@ -838,7 +1064,7 @@ function ReportContent() {
       }],
     })
     const wordFile = await Packer.toBlob(document)
-    downloadFile(wordFile, 'docx')
+    downloadFile(wordFile, 'docx', reportIds)
   } catch (error) {
     setExportError(error instanceof Error ? error.message : String(error))
   }
@@ -862,21 +1088,39 @@ function ReportContent() {
       })
       try {
         const responses = await Promise.all(
-          sections.map(async (section) => {
-            const response = section.reportId === 'support_top_questions'
-              ? await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
-              : section.reportId === 'revenue_by_region'
-                ? await supabase.rpc('fn_report_revenue_by_region', { p_ky: period })
-                : section.reportId === 'practice_top15'
-                  ? await supabase.rpc('fn_report_practice_top15', { p_ky: period })
-                  : section.reportId === 'lead_pipeline'
-                    ? await supabase.rpc('fn_report_lead_pipeline', { p_ky: period })
-                    : section.reportId === 'overview_registration_trend'
-                      ? await supabase.rpc('fn_report_registration_peak_trend', { p_ky: period })
-                      : await supabase.rpc('fn_bao_cao_du_lieu', {
-                        p_ma_bao_cao: section.reportId,
-                        p_ky: period,
-                      })
+          sections.filter((section) => section.reportId !== 'student_status').map(async (section) => {
+            let response: { data: unknown; error: { message: string } | null }
+            switch (section.reportId) {
+              case 'support_top_questions':
+                response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
+                break
+              case 'revenue_by_region':
+                response = await supabase.rpc('fn_report_revenue_by_region', { p_ky: period })
+                break
+              case 'lead_pipeline':
+                response = await supabase.rpc('fn_report_lead_pipeline', { p_ky: period })
+                break
+              case 'practice_top15':
+                response = await supabase.rpc('fn_report_practice_top15', { p_ky: period })
+                break
+              case 'overview_registration_trend':
+                response = await supabase.rpc('fn_report_registration_peak_trend', { p_ky: period })
+                break
+              case 'partner_referral_conversion':
+                response = await supabase.rpc('fn_report_partner_referral_conversion', { p_ky: period })
+                break
+              case 'support_unanswered_age':
+                response = await supabase.rpc('fn_report_support_unanswered_age', { p_ky: period })
+                break
+              case 'import_quality':
+                response = await supabase.rpc('fn_report_import_quality', { p_ky: period })
+                break
+              default:
+                response = await supabase.rpc('fn_bao_cao_du_lieu', {
+                  p_ma_bao_cao: section.reportId,
+                  p_ky: period,
+                })
+            }
             return { reportId: section.reportId, data: response.data, error: response.error }
           }),
         )
@@ -885,8 +1129,18 @@ function ReportContent() {
         const nextErrors: Record<string, string> = {}
         for (const response of responses) {
           if (response.error) nextErrors[response.reportId] = `Không tải được dữ liệu: ${response.error.message}`
-          else nextResults[response.reportId] = response.data
+          else if (response.reportId === 'overview_enrollment_funnel') {
+            nextResults[response.reportId] = exportRows(response.data)
+              .filter((row) => !String(row.buoc ?? '').trim().toLocaleLowerCase('vi').startsWith('hoàn thành'))
+              .map((row) => ({
+                ...row,
+                buoc: typeof row.buoc === 'string'
+                  ? row.buoc.replace(/\s*\(thanh toán thành công\)\s*$/i, '')
+                  : row.buoc,
+              }))
+          } else nextResults[response.reportId] = response.data
         }
+        if (nextErrors.student_summary) nextErrors.student_status = nextErrors.student_summary
 
         setResults((current) => ({ ...current, ...nextResults }))
         setErrors(nextErrors)
@@ -939,29 +1193,32 @@ function ReportContent() {
           >
             <RefreshCw size={14} /> Làm mới
           </button>
+          <label>
+            <span className="sr-only">Định dạng xuất báo cáo</span>
+            <select
+              aria-label="Định dạng xuất báo cáo"
+              value={exportFormat}
+              onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm"
+            >
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="pdf">PDF</option>
+              <option value="word">Word (.docx)</option>
+              <option value="csv">CSV</option>
+            </select>
+          </label>
           <button
-            onClick={() => void exportReport()}
+            onClick={() => void exportReport(exportFormat)}
             disabled={loading || !sections.some((section) => displayResults[section.reportId] != null)}
-            className="flex h-10 items-center gap-2 rounded-r-xl bg-blue-600 px-3.5 text-sm font-semibold text-white shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
+            className="flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-3.5 text-sm font-semibold text-white shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
           >
-            {exportFormat === 'excel' && <FileSpreadsheet size={14} />}
-            {exportFormat === 'word' && <FileText size={14} />}
-            {exportFormat === 'pdf' && <Printer size={14} />}
-            {exportFormat === 'csv' && <Download size={14} />}
-            Xuất
+            {exportFormat === 'excel'
+              ? <FileSpreadsheet size={14} />
+              : exportFormat === 'pdf'
+                ? <Printer size={14} />
+                : <FileText size={14} />}
+            Xuất {exportFormat === 'excel' ? 'Excel' : exportFormat === 'word' ? 'Word' : exportFormat.toUpperCase()}
           </button>
-          <label className="sr-only" htmlFor="report-export-format">Định dạng xuất báo cáo</label>
-          <select
-            id="report-export-format"
-            value={exportFormat}
-            onChange={(event) => setExportFormat(event.target.value as typeof exportFormat)}
-            className="order-[-1] h-10 rounded-l-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 sm:order-none"
-          >
-            <option value="excel">Excel</option>
-            <option value="word">Word</option>
-            <option value="pdf">PDF</option>
-            <option value="csv">CSV</option>
-          </select>
         </div>
       </div>
 
@@ -991,7 +1248,7 @@ function ReportContent() {
               }`}
             >
               {tab === 'Tổng quan' && <BarChart3 size={15} />}
-              {tab}
+              {tab === 'Vận hành thí sinh' ? 'Thí sinh' : tab}
             </button>
           ))}
         </div>
@@ -1029,7 +1286,7 @@ function ReportContent() {
                   onClick={() => void exportReport('pdf', ['support_top_questions'])}
                   className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
                 >
-                  <Printer size={14} /> Xuất 50 câu hỏi PDF
+                  <Printer size={14} /> Xuất PDF riêng
                 </button>
               ) : undefined}
               visualization={section.visualization}

@@ -387,7 +387,7 @@ export default function KpiPage() {
     <AdminShell active="KPI" title="KPI">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">KPI – Theo dõi mục tiêu và tiến độ</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Mục tiêu và tiến độ</h2>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2">
           <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 shadow-sm">

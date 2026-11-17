@@ -61,7 +61,10 @@ function localDateKey(date: Date): string {
 
 function defaultKpiPeriod(): string {
   const now = vietnamCalendarDate()
-  return `${now.getUTCFullYear()}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`
+  const currentQuarter = Math.floor(now.getUTCMonth() / 3) + 1
+  const quarter = currentQuarter === 1 ? 4 : currentQuarter - 1
+  const year = currentQuarter === 1 ? now.getUTCFullYear() - 1 : now.getUTCFullYear()
+  return `${year}-Q${quarter}`
 }
 
 function getErrorMessage(error: unknown): string {
@@ -129,12 +132,21 @@ function parseNumber(value: unknown): number | null {
   return Number.isFinite(result) ? result : null
 }
 
+function isWholeNumberUnit(unit: string): boolean {
+  const normalized = unit.trim().toLocaleLowerCase('vi')
+  return normalized === 'thí sinh'
+    || normalized === 'doanh nghiệp'
+    || normalized === 'lượt'
+    || normalized.startsWith('lượt ')
+}
+
 function formatValue(value: number | null, unit: string): string {
   if (value === null) return '—'
   if (unit.toLocaleLowerCase('vi') === 'vnd' || unit.toLocaleLowerCase('vi') === 'vnđ' || unit === '₫') {
     return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value)} VNĐ`
   }
-  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)}${unit ? ` ${unit}` : ''}`
+  const maximumFractionDigits = isWholeNumberUnit(unit) ? 0 : 2
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits }).format(value)}${unit ? ` ${unit}` : ''}`
 }
 
 function unwrapRpcRows(value: unknown): Record<string, unknown>[] {
@@ -147,6 +159,12 @@ function unwrapRpcRows(value: unknown): Record<string, unknown>[] {
       ? [unwrapped as Record<string, unknown>]
       : [record]
   })
+}
+
+function isValidKpiId(id: string): boolean {
+  const legacyKpiId = /^KPI_(TS|DT|DN\d*|HT\d*|GK\d*|TR\d*|TT\d*)(_[A-Z0-9]+)*$/i
+  const targetKpiId = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_T\d+$/i
+  return legacyKpiId.test(id) || targetKpiId.test(id)
 }
 
 function groupForKpi(raw: RawKpi): (typeof GROUPS)[number] {
@@ -203,6 +221,14 @@ function matchesStatus(row: KpiRow, filter: StatusFilter): boolean {
 }
 
 export default function KpiPage() {
+  return (
+    <AdminShell active="KPI" title="KPI">
+      <KpiDashboardContent />
+    </AdminShell>
+  )
+}
+
+function KpiDashboardContent() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const access = useReportAccess()
   const [period, setPeriod] = useState(defaultKpiPeriod)
@@ -287,31 +313,44 @@ export default function KpiPage() {
       const nextRows = progressRecords.flatMap((record): KpiRow[] => {
         const raw = record as RawKpi
         const id = typeof raw.kpi_id === 'string' ? raw.kpi_id.trim() : ''
-        if (!/^KPI_(TS|DT|DN\d*|HT\d*|GK\d*|TR\d*|TT\d*)(_[A-Z0-9]+)*$/i.test(id)) {
+        if (!isValidKpiId(id)) {
           invalidIds.push(id || '(trống)')
           return []
         }
 
-        const target = parseNumber(raw.muc_tieu)
-        const current = parseNumber(raw.gia_tri_hien_tai)
-        if (target === null || target <= 0 || current === null) return []
-        const direction = String(raw.huong ?? 'CAO')
-        const completion = progressPercent(target, current, direction)
-        const status = statusFor(completion, raw.han_chot, period, nextPeriodClosed)
         const sourceGroup = String(raw.nhom ?? '')
         const unit = String(raw.don_vi ?? (
           sourceGroup === 'DOANH_THU' ? 'VNĐ' : sourceGroup === 'THI_SINH' ? 'thí sinh' : sourceGroup === 'DOANH_NGHIEP' ? 'doanh nghiệp' : ''
         ))
+        const parsedTarget = parseNumber(raw.muc_tieu)
+        const parsedCurrent = parseNumber(raw.gia_tri_hien_tai)
+        if (parsedTarget === null || parsedCurrent === null) return []
+        const target = isWholeNumberUnit(unit) ? Math.round(parsedTarget) : parsedTarget
+        const current = isWholeNumberUnit(unit) ? Math.round(parsedCurrent) : parsedCurrent
+        if (target <= 0) return []
+        const direction = String(raw.huong ?? 'CAO')
+        const completion = progressPercent(target, current, direction)
+        const status = statusFor(completion, raw.han_chot, period, nextPeriodClosed)
+        const group = groupForKpi(raw)
+        const rawSubject = String(raw.chu_the ?? '')
+        const subject = group === 'Trường' && /^\d+$/.test(rawSubject)
+          ? `Trường ${rawSubject}`
+          : rawSubject
+        const baseName = typeof raw.ten_kpi === 'string' && raw.ten_kpi.trim() ? raw.ten_kpi : id
+        const displayName = group === 'Trường' && subject && subject !== 'Toàn bộ'
+          ? `${baseName} - ${subject}`
+          : baseName
         return [{
           ...raw,
           kpi_id: id,
           nhom: sourceGroup,
-          ten_kpi: typeof raw.ten_kpi === 'string' && raw.ten_kpi.trim() ? raw.ten_kpi : id,
+          ten_kpi: displayName,
+          chu_the: subject,
           muc_tieu: target,
           gia_tri_hien_tai: current,
           hoan_thanh_pct: completion,
           status,
-          group: groupForKpi(raw),
+          group,
           unit,
         }]
       })
@@ -384,7 +423,7 @@ export default function KpiPage() {
   const tabGroup = getTabGroup(activeTab)
 
   return (
-    <AdminShell active="KPI" title="KPI">
+    <>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Mục tiêu và tiến độ</h2>
@@ -644,7 +683,7 @@ export default function KpiPage() {
           </section>
         )}
       </div>
-    </AdminShell>
+    </>
   )
 }
 

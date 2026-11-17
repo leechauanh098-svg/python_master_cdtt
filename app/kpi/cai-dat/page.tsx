@@ -33,7 +33,10 @@ const KPI_GROUPS = [
 
 function defaultKpiPeriod(): string {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000)
-  return `${now.getUTCFullYear()}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`
+  const currentQuarter = Math.floor(now.getUTCMonth() / 3) + 1
+  const quarter = currentQuarter === 1 ? 4 : currentQuarter - 1
+  const year = currentQuarter === 1 ? now.getUTCFullYear() - 1 : now.getUTCFullYear()
+  return `${year}-Q${quarter}`
 }
 
 function getErrorMessage(error: unknown): string {
@@ -54,6 +57,14 @@ function getPeriods(): string[] {
 }
 
 export default function KpiSettingsPage() {
+  return (
+    <AdminShell active="KPI" title="Cài đặt KPI">
+      <KpiSettingsContent />
+    </AdminShell>
+  )
+}
+
+function KpiSettingsContent() {
   const access = useReportAccess()
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
@@ -90,7 +101,7 @@ export default function KpiSettingsPage() {
         p_kpi_id: kpiId,
         p_period: period,
         p_group: selectedGroup.group,
-        p_name: selectedGroup.legacy ? name : selectedGroup.label.split(' — ').slice(1).join(' — '),
+        p_name: selectedGroup.legacy ? name : selectedGroup.label.split(' - ').slice(1).join(' - '),
         p_target: targetValue,
         p_reason: reason,
       })
@@ -104,7 +115,7 @@ export default function KpiSettingsPage() {
   }
 
   return (
-    <AdminShell active="KPI" title="Cài đặt KPI">
+    <>
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">CÀI ĐẶT KPI</p>
@@ -145,7 +156,7 @@ export default function KpiSettingsPage() {
             </label>
             <label className="text-sm font-semibold text-slate-800">
               Tên KPI
-              <input value={selectedGroup.legacy ? name : selectedGroup.label.split(' — ').slice(1).join(' — ')} onChange={(event) => setName(event.target.value)} readOnly={!selectedGroup.legacy} required maxLength={200} className="mt-2 min-h-11 w-full rounded-xl border border-slate-200 px-3 font-normal read-only:bg-slate-50 read-only:text-slate-600" />
+              <input value={selectedGroup.legacy ? name : selectedGroup.label.split(' - ').slice(1).join(' - ')} onChange={(event) => setName(event.target.value)} readOnly={!selectedGroup.legacy} required maxLength={200} className="mt-2 min-h-11 w-full rounded-xl border border-slate-200 px-3 font-normal read-only:bg-slate-50 read-only:text-slate-600" />
             </label>
             <label className="text-sm font-semibold text-slate-800">
               Mục tiêu
@@ -165,6 +176,6 @@ export default function KpiSettingsPage() {
           </div>
         </form>
       )}
-    </AdminShell>
+    </>
   )
 }

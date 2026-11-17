@@ -48,7 +48,6 @@ const navigation = [
   {
     title: 'PHÂN TÍCH & HỆ THỐNG',
     items: [
-      { label: 'KPI', icon: BarChart3, href: '/kpi' },
       { label: 'Báo cáo', icon: BarChart3, href: '/bao-cao' },
       { label: 'Quản lý phân quyền', icon: ShieldCheck, href: '/phan-quyen' },
     ],
@@ -230,7 +229,6 @@ export function AdminShell({
               </p>
               {section.items
                 .filter((item) => {
-                  if (item.href === '/kpi') return reportAccess.canViewKpi
                   if (item.href === '/bao-cao') return reportAccess.permissions.some((permission) => permission.startsWith('BAO_CAO_'))
                   return true
                 })

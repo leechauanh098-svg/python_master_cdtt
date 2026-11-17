@@ -171,12 +171,9 @@ export default function PythonMasterPage() {
             <h3 className="mt-3 text-sm font-semibold text-slate-700">Chưa có dữ liệu vòng thi</h3>
             <p className="mx-auto mt-1 max-w-lg text-xs leading-5 text-slate-500">
               Khi thông tin cuộc thi được tạo trong hệ thống, lịch trình và trạng thái sẽ hiển thị tại đây.
-              Báo cáo thứ hạng và bài thi có thể xem ở mục KPI hoặc Báo cáo.
+              Báo cáo thứ hạng và bài thi có thể xem ở mục Báo cáo.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/kpi" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700">
-                <BarChart3 size={14} /> Mở KPI <ArrowRight size={13} />
-              </Link>
               <Link href="/bao-cao" className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">
                 <BarChart3 size={14} /> Mở Báo cáo <ArrowRight size={13} />
               </Link>

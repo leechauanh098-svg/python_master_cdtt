@@ -65,7 +65,7 @@ export function AdminShell({
 }) {
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
-  const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === 'true'
+  const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED !== 'false'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [authRedirecting, setAuthRedirecting] = useState(false)

@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_AUTH_DISABLED !== 'false') {
+    if (process.env.NEXT_PUBLIC_AUTH_DISABLED === 'true') {
       router.replace('/')
       return
     }

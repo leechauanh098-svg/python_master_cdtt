@@ -14,12 +14,16 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [email, setEmail] = useState('nguyen.minhanh@sotatek.com')
-  const [password, setPassword] = useState('')
+  const [password, setPassword] = useState('111111')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_AUTH_DISABLED === 'true') {
+      router.replace('/')
+      return
+    }
     if (!supabase) return
     let active = true
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {

@@ -65,6 +65,7 @@ export function AdminShell({
 }) {
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
+  const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === 'true'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [authRedirecting, setAuthRedirecting] = useState(false)
@@ -73,6 +74,12 @@ export function AdminShell({
 
   useEffect(() => {
     let active = true
+
+    if (authDisabled) {
+      setAuthRedirecting(false)
+      setAuthReady(true)
+      return () => { active = false }
+    }
 
     const redirectToLogin = () => {
       if (!active) return
@@ -105,10 +112,32 @@ export function AdminShell({
       active = false
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [authDisabled, router, supabase])
 
   useEffect(() => {
     let active = true
+    if (authDisabled) {
+      setReportAccess({
+        loading: false,
+        error: '',
+        employeeName: 'Chế độ xem thử',
+        roleIds: [],
+        roleNames: ['Quản trị'],
+        permissions: [
+          'BAO_CAO_TONG_QUAN',
+          'BAO_CAO_THISINH',
+          'BAO_CAO_DOANH_THU',
+          'BAO_CAO_DOANH_THU_CHI_TIET',
+          'BAO_CAO_DOI_TAC',
+          'BAO_CAO_HOC_VU',
+          'BAO_CAO_HO_TRO',
+          'BAO_CAO_AN_NINH',
+        ],
+        canViewKpi: true,
+        kpiAccessError: '',
+      })
+      return () => { active = false }
+    }
     if (!authReady || !supabase) return () => { active = false }
 
     setReportAccess(emptyReportAccess)
@@ -161,7 +190,7 @@ export function AdminShell({
     })
 
     return () => { active = false }
-  }, [authReady, supabase])
+  }, [authDisabled, authReady, supabase])
 
   async function signOut() {
     if (!supabase) return
@@ -289,9 +318,11 @@ export function AdminShell({
               <p className="text-sm font-semibold text-slate-800">{reportAccess.employeeName || 'Nhân viên'}</p>
               <p className="text-xs text-slate-500">{reportAccess.roleNames.join(', ') || 'Tài khoản hệ thống'}</p>
             </div>
-            <button onClick={() => void signOut()} className="ml-1 flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50" aria-label="Đăng xuất">
-              <LogOut size={14} /><span className="hidden sm:inline">Đăng xuất</span>
-            </button>
+            {!authDisabled && (
+              <button onClick={() => void signOut()} className="ml-1 flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50" aria-label="Đăng xuất">
+                <LogOut size={14} /><span className="hidden sm:inline">Đăng xuất</span>
+              </button>
+            )}
           </div>
         </header>
         {authError && <p role="alert" className="mx-5 mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 sm:mx-8">{authError}</p>}

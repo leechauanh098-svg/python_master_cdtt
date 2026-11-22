@@ -231,7 +231,7 @@ export default function KnowledgeBasePage() {
             <span className="mt-1 block text-xs text-slate-500">PDF, DOC, DOCX, TXT, CSV, XLSX · tối đa 50 MB</span>
           </label>
           <label className="block xl:col-span-1"><span className="mb-1.5 block text-sm font-medium text-slate-600">Mã nhân viên tạo tài liệu</span><input value={staffId} onChange={(event) => setStaffId(event.target.value)} placeholder="Nhập mã nhân viên" className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400" /></label>
-          <div className="flex items-end">
+          <div className="flex items-end xl:items-start xl:pt-[26px]">
             <button disabled={uploading} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">
               <UploadCloud size={16} /> {uploading ? 'Đang tải tệp…' : 'Tải tệp lên & thêm tài liệu'}
             </button>

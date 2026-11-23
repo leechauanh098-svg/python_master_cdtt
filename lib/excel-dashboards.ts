@@ -330,24 +330,47 @@ function dashboardMetrics(
       .reduce((sum, row) => sum + (numberValue(row.ty_le_pct) ?? 0), 0)
     if (directShare > 0) notes.push(`Trực tiếp/Không xác định chiếm khoảng ${percent(directShare)} doanh thu.`)
   } else if (dashboardTab === 'Học vụ') {
-    title = `${tab} ${period.replace('-', '/')}`
-    const statusRows = rowsFor(datasets, 'submission_status')
-    const status = rowsChart('Trạng thái bài nộp gần nhất theo thí sinh', statusRows, 'trang_thai', [{ key: 'so_luong', name: 'Số lượng thí sinh' }], 'doughnut')
-    addChart('submission_status', status)
+    title = `Tổng quan học vụ ${period.replace('-', '/')}`
+    const preliminaryRows = rowsFor(datasets, 'contest_results')
+    const certificateRows = rowsFor(datasets, 'contest_certificates')
+    const qualifierRows = rowsFor(datasets, 'contest_qualifiers_top10')
+    const distinctStudentCount = (rows: Record<string, unknown>[]) =>
+      new Set(rows.map((row) => String(row.thi_sinh_id ?? '')).filter(Boolean)).size
+    const preliminaryCount = distinctStudentCount(preliminaryRows)
+    const certificateCount = distinctStudentCount(certificateRows)
+    const qualifierCount = distinctStudentCount(qualifierRows)
+    kpis = [
+      { label: 'Thí sinh vòng loại', value: count(preliminaryCount) },
+      { label: 'Đủ điều kiện vào chung kết', value: count(qualifierCount), detail: 'Top 10%, gộp Bảng A và B' },
+      { label: 'Đạt chứng chỉ COS Pro', value: count(certificateCount), detail: 'Từ 600 điểm' },
+      { label: 'Tỷ lệ đạt chứng chỉ', value: percent(preliminaryCount ? certificateCount * 100 / preliminaryCount : null) },
+    ]
+
+    const certificatePassRows = rowsFor(datasets, 'certificate_pass_rate_by_province')
+    const certificatePass = rowsChart('Tỷ lệ đạt chứng chỉ theo tỉnh/thành', certificatePassRows, 'tinh_thanh', [
+      { key: 'ty_le_dat_chung_chi_pct', name: 'Tỷ lệ đạt chứng chỉ (%)' },
+    ], 'bar', { direction: 'bar', showValues: true })
+    addChart('certificate_pass_rate_by_province', certificatePass)
+    const certificateFailRows = rowsFor(datasets, 'certificate_fail_rate_by_province')
+    const certificateFail = rowsChart('Tỷ lệ không đạt chứng chỉ theo tỉnh/thành', certificateFailRows, 'tinh_thanh', [
+      { key: 'ty_le_khong_dat_chung_chi_pct', name: 'Tỷ lệ không đạt chứng chỉ (%)' },
+    ], 'bar', { direction: 'bar', showValues: true })
+    addChart('certificate_fail_rate_by_province', certificateFail)
+
     const failRows = rowsFor(datasets, 'submission_failures')
     const failures = chart('Bài tập có tỷ lệ không đạt cao', failRows.map((row) => formatCell(row.ten_bai_tap)), [
       { name: 'Tổng lượt nộp', values: failRows.map((row) => numberValue(row.tong_luot_nop)), chartType: 'bar' },
       { name: 'Tỷ lệ không đạt (%)', values: failRows.map((row) => numberValue(row.tyle_khong_dat_pt)), chartType: 'line' },
     ], 'combo', { direction: 'col', grouping: 'clustered', showValues: true })
     addChart('submission_failures', failures)
-    const province = rowsChart('Tỷ lệ không đạt theo tỉnh/thành', rowsFor(datasets, 'submission_failures_by_province'), 'tinh_thanh', [
-      { key: 'tyle_khong_dat_pt', name: 'Tỷ lệ không đạt (%)' },
-    ], 'bar', { direction: 'bar', showValues: true })
-    addChart('submission_failures_by_province', province)
-    const results: Record<string, unknown>[] = rowsFor(datasets, 'contest_results').map((row) => {
+
+    const results: Record<string, unknown>[] = preliminaryRows.map((row) => {
       const outcome = formatCell(row.ket_qua_xet).toLocaleLowerCase('vi')
       return {
         ...row,
+        ten_vong_hien_thi: String(row.bang_dau ?? '').toUpperCase() === 'BANG_B'
+          ? 'Vòng loại Bảng B'
+          : 'Vòng loại Bảng A',
         ket_qua_xet: outcome.includes('không đạt')
           ? 'Không đạt'
           : outcome.includes('đạt')
@@ -355,34 +378,31 @@ function dashboardMetrics(
             : row.ket_qua_xet,
       }
     })
-    const outcomes = groupedChart('Đạt yêu cầu / Không đạt theo cuộc thi', results, 'cuoc_thi_id', 'ket_qua_xet', '__count__')
+    const outcomes = groupedChart('Kết quả vòng loại theo bảng đấu', results, 'ten_vong_hien_thi', 'ket_qua_xet', '__count__')
     addChart('contest_results', outcomes)
-    const ct02Scores = results.filter((row) => String(row.cuoc_thi_id).toUpperCase() === 'CT02' && numberValue(row.tong_diem) != null)
-    const histogram = histogramByHundred(ct02Scores, 'tong_diem')
-    const histogramChart = chart('Phân phối tổng điểm vòng CT02', histogram.categories, [
+    const tableBScores = results.filter((row) =>
+      String(row.bang_dau ?? '').toUpperCase() === 'BANG_B' && numberValue(row.tong_diem) != null,
+    )
+    const histogram = histogramByHundred(tableBScores, 'tong_diem')
+    const histogramChart = chart('Phân phối tổng điểm - Vòng loại Bảng B', histogram.categories, [
       { name: 'Số thí sinh', values: histogram.values },
     ], 'bar', { direction: 'col', showValues: true })
     addChart('contest_results', histogramChart)
-    const schoolAverages = averageByKey(results.filter((row) =>
-      String(row.cuoc_thi_id).toUpperCase() === 'CT02' && row.truong_hoc != null,
-    ), 'truong_hoc', 'tong_diem').slice(0, 15)
-    const schoolAverageChart = rowsChart('Điểm trung bình CT02 theo trường', schoolAverages, 'truong_hoc',
-      [{ key: 'gia_tri_trung_binh', name: 'Điểm trung bình' }], 'bar', { direction: 'bar', showValues: true })
-    addChart('contest_results', schoolAverageChart)
-    const detailRows = rowsFor(datasets, 'submission_details').filter((row) => numberValue(row.diem_toi_da) != null && Number(row.diem_toi_da) > 0)
-    const questionTotals = aggregateQuestionScores(detailRows)
-    const questionChart = chart('Tỷ lệ điểm đạt được theo câu hỏi', questionTotals.categories,
-      [{ name: 'Điểm đạt được / điểm tối đa (%)', values: questionTotals.values }], 'bar', { direction: 'bar', showValues: true })
-    addChart('submission_details', questionChart)
-    const submittedAnswers = detailRows.filter((row) => typeof row.la_dap_an_dung === 'boolean')
-    const answerSummary = aggregateAnswersByType(submittedAnswers)
-    const answerChart = chart('Tỷ lệ trả lời đúng theo loại câu hỏi', answerSummary.categories,
-      [{ name: 'Tỷ lệ đúng (%)', values: answerSummary.values }], 'bar', { direction: 'bar', showValues: true })
-    addChart('submission_details', answerChart)
-    const lowestQuestions = aggregateAnswersByQuestion(submittedAnswers).lowestQuestions
-    if (lowestQuestions.length) notes.push(`Ba câu có tỷ lệ trả lời đúng thấp nhất: ${lowestQuestions.join('; ')}.`)
-    const lowSample = rowsFor(datasets, 'submission_failures_by_province').filter((row) => Number(row.tong_luot_nop) <= 1)
-    if (lowSample.length) notes.push(`${lowSample.map((row) => formatCell(row.tinh_thanh)).join(' và ')} chỉ có 1 lượt nộp; tỷ lệ chưa đáng tin cậy.`)
+
+    const finalRows: Record<string, unknown>[] = rowsFor(datasets, 'contest_final_results').map((row) => {
+      const outcome = formatCell(row.ket_qua_xet).toLocaleLowerCase('vi')
+      return {
+        ...row,
+        bang_hien_thi: String(row.bang_dau ?? '').toUpperCase() === 'BANG_B' ? 'Bảng B' : 'Bảng A',
+        ket_qua_xet: outcome.includes('không đạt')
+          ? 'Không đạt'
+          : outcome.includes('đạt')
+            ? 'Đạt'
+            : row.ket_qua_xet,
+      }
+    })
+    const finalOutcomes = groupedChart('Kết quả chung kết theo bảng đấu', finalRows, 'bang_hien_thi', 'ket_qua_xet', '__count__')
+    addChart('contest_final_results', finalOutcomes)
   } else if (dashboardTab === 'Đối tác') {
     title = `${tab} ${period.replace('-', '/')}`
     const sponsors = combineRows(rowsFor(datasets, 'sponsor_summary'))
@@ -588,13 +608,13 @@ function dashboardMetrics(
     'Tài chính': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
     Marketing: ['lead_pipeline', 'student_utm'],
     'Tài trợ/đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'sponsor_revenue_by_province', 'sponsor_trend'],
-    'Học thuật/kết quả thi': ['contest_rounds', 'submission_status', 'contest_results', 'contest_final_results', 'contest_certificates', 'contest_qualifiers_top10', 'submission_failures', 'submission_failures_by_province'],
+    'Học thuật/kết quả thi': ['contest_rounds', 'contest_results', 'contest_final_results', 'contest_certificates', 'contest_qualifiers_top10', 'submission_failures', 'certificate_pass_rate_by_province', 'certificate_fail_rate_by_province'],
     'Hệ thống': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
     'Hỗ trợ': ['support_by_status', 'support_by_entity', 'support_faq_summary', 'support_faq_categories', 'support_conversations'],
     'Tổng quan': ['overview_summary', 'lead_pipeline', 'overview_progress', 'overview_enrollment_funnel'],
     'Thí sinh': ['student_summary', 'student_status', 'student_schools', 'student_school_scores', 'student_utm'],
     'Doanh thu': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
-    'Học vụ': ['contest_rounds', 'submission_status', 'contest_results', 'contest_final_results', 'contest_certificates', 'contest_qualifiers_top10', 'submission_failures', 'submission_failures_by_province'],
+    'Học vụ': ['contest_rounds', 'contest_results', 'contest_final_results', 'contest_certificates', 'contest_qualifiers_top10', 'submission_failures', 'certificate_pass_rate_by_province', 'certificate_fail_rate_by_province'],
     'Đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'partner_referral_conversion', 'sponsor_revenue_by_province', 'sponsor_trend', 'sponsor_daily_revenue'],
     'Bảo mật': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
   }
@@ -718,60 +738,6 @@ function aggregateCount(
     totals.set(category, (totals.get(category) ?? 0) + value)
   })
   return Array.from(totals, ([category, value]) => ({ [categoryKey]: category, so_luong: value }))
-}
-
-function aggregateQuestionScores(rows: Record<string, unknown>[]): { categories: string[]; values: number[] } {
-  const totals = new Map<string, { earned: number; maximum: number }>()
-  rows.forEach((row) => {
-    const question = formatCell(row.cau_hoi_so)
-    const earned = numberValue(row.diem_dat_duoc)
-    const maximum = numberValue(row.diem_toi_da)
-    if (question === '—' || earned == null || maximum == null || maximum <= 0) return
-    const entry = totals.get(question) ?? { earned: 0, maximum: 0 }
-    entry.earned += earned
-    entry.maximum += maximum
-    totals.set(question, entry)
-  })
-  const entries = Array.from(totals.entries())
-  return {
-    categories: entries.map(([question]) => question),
-    values: entries.map(([, score]) => score.earned * 100 / score.maximum),
-  }
-}
-
-function aggregateAnswersByType(rows: Record<string, unknown>[]): { categories: string[]; values: number[] } {
-  const totals = new Map<string, { correct: number; total: number }>()
-  rows.forEach((row) => {
-    const type = formatCell(row.loai_cau_hoi)
-    if (type === '—') return
-    const result = totals.get(type) ?? { correct: 0, total: 0 }
-    result.total += 1
-    if (row.la_dap_an_dung === true) result.correct += 1
-    totals.set(type, result)
-  })
-  const entries = Array.from(totals.entries())
-  return {
-    categories: entries.map(([type]) => type),
-    values: entries.map(([, result]) => result.total ? result.correct * 100 / result.total : 0),
-  }
-}
-
-function aggregateAnswersByQuestion(rows: Record<string, unknown>[]): { lowestQuestions: string[] } {
-  const totals = new Map<string, { correct: number; total: number }>()
-  rows.forEach((row) => {
-    const question = formatCell(row.cau_hoi_so)
-    if (question === '—') return
-    const result = totals.get(question) ?? { correct: 0, total: 0 }
-    result.total += 1
-    if (row.la_dap_an_dung === true) result.correct += 1
-    totals.set(question, result)
-  })
-  return {
-    lowestQuestions: Array.from(totals.entries())
-      .sort((a, b) => a[1].correct / a[1].total - b[1].correct / b[1].total)
-      .slice(0, 3)
-      .map(([question, result]) => `${question} (${percent(result.correct * 100 / result.total)})`),
-  }
 }
 
 function aggregateUnansweredByChannel(rows: Record<string, unknown>[]): {

@@ -43,6 +43,7 @@ type SectionDefinition = {
   description?: string
   visualization: Visualization
   requiredPermission?: string
+  exportOnly?: boolean
 }
 
 type ReportExportDataset = {
@@ -111,6 +112,18 @@ const emptyReportColumns: Record<string, string[]> = {
     'so_thi_sinh_du_thi_vongloai',
     'so_suat_top10',
     'du_dieu_kien_vao_chung_ket',
+  ],
+  certificate_pass_rate_by_province: [
+    'tinh_thanh',
+    'so_thi_sinh_du_thi',
+    'so_thi_sinh_dat_chung_chi',
+    'ty_le_dat_chung_chi_pct',
+  ],
+  certificate_fail_rate_by_province: [
+    'tinh_thanh',
+    'so_thi_sinh_du_thi',
+    'so_thi_sinh_khong_dat_chung_chi',
+    'ty_le_khong_dat_chung_chi_pct',
   ],
   student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
@@ -272,9 +285,10 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_final_results', title: 'Kết quả vòng chung kết', description: 'Điểm và thứ hạng của thí sinh đã thanh toán trong tất cả các vòng chung kết, không giới hạn theo kỳ báo cáo.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_qualifiers_top10', title: 'Tỉ lệ Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Gộp Bảng A và Bảng B. Tỷ lệ là số lượt Top 10% của tỉnh/thành chia cho tổng lượt dự thi vòng loại của tỉnh/thành.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_qualifiers_top10', title: 'Danh sách thí sinh Top 10% vòng loại vào chung kết', description: 'Xếp riêng theo bảng đấu; sheet Excel chỉ gồm các bảng có dữ liệu.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU', exportOnly: true },
+      { reportId: 'certificate_pass_rate_by_province', title: 'Tỷ lệ đạt chứng chỉ theo tỉnh/thành', description: 'Tỷ lệ thí sinh đạt từ 600 điểm COS Pro trên tổng thí sinh có kết quả vòng loại của tỉnh/thành.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'certificate_fail_rate_by_province', title: 'Tỷ lệ không đạt chứng chỉ theo tỉnh/thành', description: 'Tỷ lệ thí sinh chưa đạt 600 điểm COS Pro trên tổng thí sinh có kết quả vòng loại của tỉnh/thành.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
     ],
   },
   'Hỗ trợ': {
@@ -536,6 +550,12 @@ function ReportContent() {
       Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'ty_le_xuat_sac_pct')),
     ),
     contest_qualifiers_top10: exportRows(results.contest_qualifiers_top10),
+    certificate_pass_rate_by_province: exportRows(results.certificate_pass_rate_by_province).sort((a, b) =>
+      Number(b.ty_le_dat_chung_chi_pct ?? 0) - Number(a.ty_le_dat_chung_chi_pct ?? 0),
+    ),
+    certificate_fail_rate_by_province: exportRows(results.certificate_fail_rate_by_province).sort((a, b) =>
+      Number(b.ty_le_khong_dat_chung_chi_pct ?? 0) - Number(a.ty_le_khong_dat_chung_chi_pct ?? 0),
+    ),
     student_utm: exportRows(results.student_utm),
     sponsor_list: exportRows(results.sponsor_list).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => !['brand_reach', 'luot_tuong_tac'].includes(key.toLowerCase()))),
@@ -549,14 +569,13 @@ function ReportContent() {
     ? `${exportCell(registrationTrendStart, 'ngay')} – ${exportCell(registrationTrendEnd, 'ngay')}`
     : ''
 
-  const visibleSections = sections
+  const visibleSections = sections.filter((section) => !section.exportOnly)
 
   function reportExportRows(includeEmpty = false, includeTop10StudentRows = false): ReportExportDataset[] {
     return sections.flatMap<ReportExportDataset>((section) => {
+      if (section.exportOnly && !includeTop10StudentRows) return []
       const sourceRows = section.reportId === 'contest_qualifiers_top10'
-        ? exportRows(includeTop10StudentRows
-          ? results.contest_qualifiers_top10_rows
-          : displayResults[section.reportId])
+        ? exportRows(results.contest_qualifiers_top10)
         : exportRows(displayResults[section.reportId])
       const rows = section.reportId === 'overview_summary' && sourceRows.length
         ? [Object.assign({}, ...sourceRows)]
@@ -713,7 +732,11 @@ function ReportContent() {
     }
 
     if (format === 'excel') {
-      const excelDatasets = datasets.filter((dataset) => dataset.reportId !== 'overview_summary')
+      const excelDatasets = datasets.filter((dataset) =>
+        dataset.reportId !== 'overview_summary'
+        && dataset.reportId !== 'submission_status'
+        && dataset.hasData,
+      )
       const usedNames = new Set<string>()
       const workbook = XLSX.utils.book_new()
       const chartSources: ExcelChartSource[] = []
@@ -884,6 +907,10 @@ function ReportContent() {
         contest_qualifiers_top10: 'Top 10% vào chung kết',
         contest_final_results: 'Kết quả chung kết',
       }
+      const worksheetTitles: Record<string, string> = {
+        certificate_pass_rate_by_province: 'Tỷ lệ đạt chứng chỉ tỉnh thành',
+        certificate_fail_rate_by_province: 'Không đạt chứng chỉ tỉnh thành',
+      }
       excelDatasets.forEach(({ reportId, title, rows, visualization, hasData, emptyColumns, emptyMessage }) => {
         const groupedWorkbookTitle = groupedWorkbookTitles[reportId]
         if (groupedWorkbookTitle) {
@@ -891,7 +918,11 @@ function ReportContent() {
           const groups = [
             { key: 'BANG_A', label: reportId === 'contest_qualifiers_top10' ? 'Top 10% vòng loại - Bảng A' : 'Bảng A' },
             { key: 'BANG_B', label: reportId === 'contest_qualifiers_top10' ? 'Top 10% vòng loại - Bảng B' : 'Bảng B' },
-          ]
+          ].map((group) => ({
+            ...group,
+            groupedRows: rows.filter((row) => String(row.bang_dau ?? '').trim().toUpperCase() === group.key),
+          })).filter((group) => group.groupedRows.length > 0)
+          if (!groups.length) return
           const sheetRows: unknown[][] = [
             [groupedWorkbookTitle],
             ['Phạm vi: Tất cả các vòng thi'],
@@ -904,10 +935,8 @@ function ReportContent() {
           }))
           const headerRows: number[] = []
           const dataRanges: { start: number; end: number }[] = []
-          const emptyRows: number[] = []
 
           groups.forEach((group) => {
-            const groupedRows = rows.filter((row) => String(row.bang_dau ?? '').trim().toUpperCase() === group.key)
             const sectionRow = sheetRows.length
             sheetRows.push([group.label])
             merges.push({
@@ -918,18 +947,8 @@ function ReportContent() {
             headerRows.push(headerRow)
             sheetRows.push(columns.map(formatFieldLabel))
             const start = sheetRows.length
-            sheetRows.push(...groupedRows.map((row) => columns.map((column) => exportValue(row[column] ?? null, column))))
-            if (groupedRows.length) {
-              dataRanges.push({ start, end: sheetRows.length - 1 })
-            } else {
-              const emptyRow = sheetRows.length
-              sheetRows.push([emptyMessage ?? 'Không có dữ liệu trong bảng này.'])
-              emptyRows.push(emptyRow)
-              merges.push({
-                s: { r: emptyRow, c: 0 },
-                e: { r: emptyRow, c: Math.max(columns.length - 1, 0) },
-              })
-            }
+            sheetRows.push(...group.groupedRows.map((row) => columns.map((column) => exportValue(row[column] ?? null, column))))
+            dataRanges.push({ start, end: sheetRows.length - 1 })
             sheetRows.push([])
           })
 
@@ -985,17 +1004,6 @@ function ReportContent() {
                     : {}),
                 }
               })
-            }
-          })
-          emptyRows.forEach((row) => {
-            const noteAddress = XLSX.utils.encode_cell({ r: row, c: 0 })
-            if (worksheet[noteAddress]) {
-              worksheet[noteAddress].s = {
-                fill: { fgColor: { rgb: 'FFF7ED' } },
-                font: { color: { rgb: '9A3412' }, italic: true, sz: 10 },
-                alignment: { vertical: 'center', wrapText: true },
-                border,
-              }
             }
           })
           XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(groupedWorkbookTitle, usedNames))
@@ -1123,7 +1131,7 @@ function ReportContent() {
             rows,
           })
         }
-        XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(title, usedNames))
+        XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(worksheetTitles[reportId] ?? title, usedNames))
       })
       const workbookOutput = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
       const output = addExcelCharts(workbookOutput, chartSources)
@@ -1269,7 +1277,6 @@ function ReportContent() {
         const next = { ...current }
         for (const section of sections) {
           delete next[section.reportId]
-          if (section.reportId === 'contest_qualifiers_top10') delete next.contest_qualifiers_top10_rows
         }
         return next
       })
@@ -1277,7 +1284,6 @@ function ReportContent() {
         const responses = await Promise.all(
           sections.filter((section) => section.reportId !== 'student_status').map(async (section) => {
             let response: { data: unknown; error: { message: string } | null }
-          let extraData: unknown
             switch (section.reportId) {
               case 'contest_certificates':
                 response = await supabase.rpc('fn_bao_cao_du_lieu', {
@@ -1319,17 +1325,13 @@ function ReportContent() {
                 break
               }
               case 'contest_qualifiers_top10': {
-                const [provinceRates, qualifiers] = await Promise.all([
-                  supabase.rpc('fn_bao_cao_tyle_top10_theo_tinh', { p_ky: period }),
-                  supabase.rpc('fn_bao_cao_ds_top10_vongloai', { p_ky: period }),
-                ])
-                response = {
-                  data: provinceRates.error ? null : provinceRates.data,
-                  error: provinceRates.error ?? qualifiers.error,
-                }
-                extraData = qualifiers.data
+                response = await supabase.rpc('fn_bao_cao_ds_top10_vongloai', { p_ky: period })
                 break
               }
+              case 'certificate_pass_rate_by_province':
+              case 'certificate_fail_rate_by_province':
+                response = await supabase.rpc('fn_bao_cao_tyle_chungchi_theo_tinh', { p_ky: period })
+                break
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
                 break
@@ -1360,7 +1362,7 @@ function ReportContent() {
                   p_ky: period,
                 })
             }
-            return { reportId: section.reportId, data: response.data, error: response.error, extraData }
+            return { reportId: section.reportId, data: response.data, error: response.error }
           }),
         )
         if (!active) return
@@ -1377,9 +1379,6 @@ function ReportContent() {
                   ? row.buoc.replace(/\s*\(thanh toán thành công\)\s*$/i, '')
                   : row.buoc,
               }))
-          } else if (response.reportId === 'contest_qualifiers_top10') {
-            nextResults[response.reportId] = response.data
-            nextResults.contest_qualifiers_top10_rows = response.extraData
           } else nextResults[response.reportId] = response.data
         }
         if (nextErrors.student_summary) nextErrors.student_status = nextErrors.student_summary
@@ -1506,7 +1505,7 @@ function ReportContent() {
 
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-600">
-          {sections.length} báo cáo trong kỳ <span className="font-semibold text-slate-800">{period}</span>
+          {visibleSections.length} báo cáo trong kỳ <span className="font-semibold text-slate-800">{period}</span>
         </p>
         {loading && <span className="text-[11px] text-slate-400">Đang đồng bộ dữ liệu…</span>}
       </div>
@@ -1534,11 +1533,15 @@ function ReportContent() {
                 ) : undefined}
                 visualization={section.visualization}
                 compactTable={section.reportId === 'lead_pipeline'}
-                chartValueField={section.reportId === 'contest_qualifiers_top10'
-                  ? 'ty_le_top10_pct'
-                  : section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
-                chartLabelField={section.reportId === 'contest_qualifiers_top10'
+                chartValueField={section.reportId === 'certificate_pass_rate_by_province'
+                  ? 'ty_le_dat_chung_chi_pct'
+                  : section.reportId === 'certificate_fail_rate_by_province'
+                    ? 'ty_le_khong_dat_chung_chi_pct'
+                    : section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
+                chartLabelField={section.reportId === 'certificate_pass_rate_by_province'
                   ? 'tinh_thanh'
+                  : section.reportId === 'certificate_fail_rate_by_province'
+                    ? 'tinh_thanh'
                   : section.reportId === 'overview_progress'
                     ? 'ten_kpi'
                     : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}

@@ -270,9 +270,9 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_final_results', title: 'Kết quả vòng chung kết', description: 'Điểm và thứ hạng của thí sinh đã thanh toán, chia theo Bảng A và Bảng B.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_final_results', title: 'Kết quả vòng chung kết', description: 'Điểm và thứ hạng của thí sinh đã thanh toán trong tất cả các vòng chung kết, không giới hạn theo kỳ báo cáo.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_qualifiers_top10', title: 'Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Xếp riêng theo từng cuộc thi và bảng đấu; hiển thị tỉnh/thành, làm tròn chỉ tiêu lên và giữ thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_qualifiers_top10', title: 'Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Lấy danh sách của tất cả các vòng loại, xếp riêng theo từng cuộc thi và bảng đấu; hiển thị tỉnh/thành, làm tròn chỉ tiêu lên và giữ thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
     ],
@@ -891,7 +891,7 @@ function ReportContent() {
           ]
           const sheetRows: unknown[][] = [
             [groupedWorkbookTitle],
-            [`Kỳ báo cáo: ${period}`],
+            ['Phạm vi: Tất cả các vòng thi'],
             [`Xuất lúc: ${new Date().toLocaleString('vi-VN')}`],
             [],
           ]
@@ -1495,35 +1495,62 @@ function ReportContent() {
       </div>
 
       <div className="space-y-5">
-        {visibleSections.map((section) => (
-          <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
-            <DataPanel
-              title={section.title}
-              description={section.reportId === 'overview_registration_trend'
-                ? `16 ngày liên tiếp có tổng lượt đăng ký cao nhất trong kỳ.${registrationTrendRange ? ` Khoảng: ${registrationTrendRange}.` : ''}`
-                : section.description}
-              data={displayResults[section.reportId]}
-              loading={loading && !displayResults[section.reportId]}
-              error={errors[section.reportId]}
-              action={section.reportId === 'support_top_questions' && exportRows(displayResults.support_top_questions).length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => void exportReport('pdf', ['support_top_questions'])}
-                  className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
-                >
-                  <Printer size={14} /> Xuất PDF riêng
-                </button>
-              ) : undefined}
-              visualization={section.visualization}
-              compactTable={section.reportId === 'lead_pipeline'}
-              chartValueField={section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
-              chartLabelField={section.reportId === 'overview_progress'
-                ? 'ten_kpi'
-                : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}
-              chartSecondaryLabelField={section.reportId === 'student_school_scores' ? 'bang_dau' : undefined}
-            />
-          </div>
-        ))}
+        {visibleSections.map((section) => {
+          const content = section.reportId === 'contest_qualifiers_top10'
+            ? (
+              <div className="space-y-5">
+                {[
+                  { key: 'BANG_A', label: 'Bảng A' },
+                  { key: 'BANG_B', label: 'Bảng B' },
+                ].map((bracket) => (
+                  <DataPanel
+                    key={bracket.key}
+                    title={`${section.title} - ${bracket.label}`}
+                    description={`Danh sách tất cả thí sinh đủ điều kiện vào chung kết, sắp xếp theo tỉnh/thành trong ${bracket.label}.`}
+                    data={exportRows(displayResults[section.reportId]).filter((row) =>
+                      String(row.bang_dau ?? '').trim().toUpperCase() === bracket.key,
+                    )}
+                    loading={loading && !displayResults[section.reportId]}
+                    error={errors[section.reportId]}
+                    visualization="table"
+                  />
+                ))}
+              </div>
+            )
+            : (
+              <DataPanel
+                title={section.title}
+                description={section.reportId === 'overview_registration_trend'
+                  ? `16 ngày liên tiếp có tổng lượt đăng ký cao nhất trong kỳ.${registrationTrendRange ? ` Khoảng: ${registrationTrendRange}.` : ''}`
+                  : section.description}
+                data={displayResults[section.reportId]}
+                loading={loading && !displayResults[section.reportId]}
+                error={errors[section.reportId]}
+                action={section.reportId === 'support_top_questions' && exportRows(displayResults.support_top_questions).length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => void exportReport('pdf', ['support_top_questions'])}
+                    className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+                  >
+                    <Printer size={14} /> Xuất PDF riêng
+                  </button>
+                ) : undefined}
+                visualization={section.visualization}
+                compactTable={section.reportId === 'lead_pipeline'}
+                chartValueField={section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
+                chartLabelField={section.reportId === 'overview_progress'
+                  ? 'ten_kpi'
+                  : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}
+                chartSecondaryLabelField={section.reportId === 'student_school_scores' ? 'bang_dau' : undefined}
+              />
+            )
+
+          return (
+            <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
+              {content}
+            </div>
+          )
+        })}
         {!loading && visibleSections.length === 0 && (
           <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
             Kỳ báo cáo này chưa có dữ liệu.

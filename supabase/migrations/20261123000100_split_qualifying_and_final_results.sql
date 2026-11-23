@@ -19,7 +19,22 @@ SELECT
     WHEN bn.tong_diem >= bt.diem_dat THEN 'ĐẠT YÊU CẦU'
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
-FROM public.bainop bn
+FROM (
+  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
+    bn.*, bt.cuoc_thi_id, bt.bai_tap_id, bt.diem_dat
+  FROM public.bainop bn
+  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  JOIN public.dangky dk
+    ON dk.thi_sinh_id = bn.thi_sinh_id
+   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+   AND dk.trang_thai = 'THANH_CONG'
+  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+    AND bn.tong_diem IS NOT NULL
+  ORDER BY bt.cuoc_thi_id, bn.thi_sinh_id,
+           bn.tong_diem DESC NULLS LAST,
+           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bn.lan_nop DESC
+) bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
 JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
@@ -54,7 +69,22 @@ SELECT
     WHEN bn.tong_diem >= bt.diem_dat THEN 'ĐẠT YÊU CẦU'
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
-FROM public.bainop bn
+FROM (
+  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
+    bn.*, bt.cuoc_thi_id, bt.bai_tap_id, bt.diem_dat
+  FROM public.bainop bn
+  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  JOIN public.dangky dk
+    ON dk.thi_sinh_id = bn.thi_sinh_id
+   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+   AND dk.trang_thai = 'THANH_CONG'
+  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+    AND bn.tong_diem IS NOT NULL
+  ORDER BY bt.cuoc_thi_id, bn.thi_sinh_id,
+           bn.tong_diem DESC NULLS LAST,
+           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bn.lan_nop DESC
+) bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
 JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
@@ -66,11 +96,6 @@ WHERE bn.trang_thai = 'DA_CHAM_DIEM'
     OR ct.cuoc_thi_id ILIKE '%CK%'
     OR ct.cuoc_thi_id = 'CT03'
   );
-
-UPDATE public.bainop
-SET trang_thai = 'DA_CHAM_DIEM',
-    updated_at = now()
-WHERE trang_thai <> 'DA_CHAM_DIEM';
 
 REVOKE ALL ON TABLE public.vw_export_ketqua_vongloai FROM PUBLIC, anon;
 REVOKE ALL ON TABLE public.vw_export_danhsach_chungket FROM PUBLIC, anon;
@@ -115,10 +140,11 @@ BEGIN
   RETURN QUERY
   SELECT to_jsonb(r)
   FROM public.vw_export_danhsach_chungket r
+  CROSS JOIN LATERAL public.fn_ky_bao_cao(p_ky) ky
   WHERE p_ky IS NULL
-     OR r.thoi_gian_nop >= (
-       SELECT tu
-       FROM public.fn_ky_bao_cao(p_ky)
+     OR (
+       r.thoi_gian_nop >= ky.tu::timestamp
+       AND r.thoi_gian_nop < (ky.den + 1)::timestamp
      )
   ORDER BY r.bang_dau, r.thu_hang NULLS LAST, r.tong_diem DESC NULLS LAST;
 END;

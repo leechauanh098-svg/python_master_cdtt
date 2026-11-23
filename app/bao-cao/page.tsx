@@ -1186,6 +1186,10 @@ function ReportContent() {
                 if (!response.error) {
                   const certificates = exportRows(response.data)
                     .filter((row) => Number(row.tong_diem) >= 600)
+                    .filter((row, index, rows) => {
+                      const studentId = String(row.thi_sinh_id ?? '')
+                      return rows.findIndex((item) => String(item.thi_sinh_id ?? '') === studentId) === index
+                    })
                     .map((row) => ({
                       thi_sinh_id: row.thi_sinh_id,
                       ho_ten: row.ho_ten,

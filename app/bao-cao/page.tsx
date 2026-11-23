@@ -74,19 +74,38 @@ const emptyReportColumns: Record<string, string[]> = {
     'thu_hang',
     'thi_sinh_id',
     'ho_ten',
+    'email',
+    'sdt',
     'truong_hoc',
     'tong_diem',
     'thoi_gian_lam_bai_giay',
     'thoi_gian_nop',
     'ket_qua_xet',
   ],
-  contest_finalists: [
+  contest_finalists_a: [
     'cuoc_thi_id',
     'ten_cuoc_thi',
     'bang_dau',
     'thu_hang',
     'thi_sinh_id',
     'ho_ten',
+    'email',
+    'sdt',
+    'truong_hoc',
+    'tong_diem',
+    'thoi_gian_lam_bai_giay',
+    'thoi_gian_nop',
+    'ket_qua_xet',
+  ],
+  contest_finalists_b: [
+    'cuoc_thi_id',
+    'ten_cuoc_thi',
+    'bang_dau',
+    'thu_hang',
+    'thi_sinh_id',
+    'ho_ten',
+    'email',
+    'sdt',
     'truong_hoc',
     'tong_diem',
     'thoi_gian_lam_bai_giay',
@@ -252,7 +271,8 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_finalists', title: 'Kết quả vòng chung kết', description: 'Danh sách thí sinh chung kết và xác nhận tham gia, không xuất hiện trong kết quả vòng loại.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_finalists_a', title: 'Kết quả vòng chung kết - Bảng A', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng A đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_finalists_b', title: 'Kết quả vòng chung kết - Bảng B', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng B đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
@@ -976,7 +996,7 @@ function ReportContent() {
         }
         XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(title, usedNames))
 
-        if (reportId === 'contest_results' || reportId === 'contest_finalists') {
+        if (reportId === 'contest_results' || reportId.startsWith('contest_finalists_')) {
           const resultColumns = columns
           const resultGroups = [
             { table: 'BANG_A', outcome: 'ĐẠT YÊU CẦU', label: 'Bảng A - Đạt' },
@@ -1203,9 +1223,11 @@ function ReportContent() {
                   response = { data: certificates, error: null }
                 }
                 break
-              case 'contest_finalists':
+              case 'contest_finalists_a':
+              case 'contest_finalists_b':
                 response = await supabase.rpc('fn_bao_cao_ketqua_chungket', {
                   p_ky: period,
+                  p_bang: section.reportId === 'contest_finalists_a' ? 'BANG_A' : 'BANG_B',
                 })
                 break
               case 'support_top_questions':

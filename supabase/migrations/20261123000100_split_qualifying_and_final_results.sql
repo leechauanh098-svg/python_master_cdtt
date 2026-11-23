@@ -4,7 +4,7 @@ SELECT
   ct.ten_cuoc_thi,
   ts.bang_dau,
   dense_rank() OVER (
-    PARTITION BY ts.bang_dau
+    PARTITION BY bt.cuoc_thi_id, ts.bang_dau
     ORDER BY bn.tong_diem DESC NULLS LAST, bn.thoi_gian_lam_bai_giay ASC
   ) AS thu_hang,
   ts.thi_sinh_id,
@@ -35,7 +35,7 @@ SELECT
   ct.ten_cuoc_thi,
   ts.bang_dau,
   dense_rank() OVER (
-    PARTITION BY ts.bang_dau
+    PARTITION BY bt.cuoc_thi_id, ts.bang_dau
     ORDER BY bn.tong_diem DESC NULLS LAST, bn.thoi_gian_lam_bai_giay ASC
   ) AS thu_hang,
   ts.thi_sinh_id,

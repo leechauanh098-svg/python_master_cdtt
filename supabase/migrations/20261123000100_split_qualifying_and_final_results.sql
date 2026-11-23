@@ -20,20 +20,20 @@ SELECT
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
 FROM (
-  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
-    bn.*, bt.cuoc_thi_id, bt.bai_tap_id, bt.diem_dat
-  FROM public.bainop bn
-  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  SELECT DISTINCT ON (btd.cuoc_thi_id, bs.thi_sinh_id)
+    bs.*, btd.cuoc_thi_id, btd.bai_tap_id, btd.diem_dat
+  FROM public.bainop bs
+  JOIN public.baitap btd ON btd.bai_tap_id = bs.bai_tap_id
   JOIN public.dangky dk
-    ON dk.thi_sinh_id = bn.thi_sinh_id
-   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+    ON dk.thi_sinh_id = bs.thi_sinh_id
+   AND dk.cuoc_thi_id = btd.cuoc_thi_id
    AND dk.trang_thai = 'THANH_CONG'
-  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
-    AND bn.tong_diem IS NOT NULL
-  ORDER BY bt.cuoc_thi_id, bn.thi_sinh_id,
-           bn.tong_diem DESC NULLS LAST,
-           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
-           bn.lan_nop DESC
+  WHERE bs.trang_thai = 'DA_CHAM_DIEM'
+    AND bs.tong_diem IS NOT NULL
+  ORDER BY btd.cuoc_thi_id, bs.thi_sinh_id,
+           bs.tong_diem DESC NULLS LAST,
+           bs.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bs.lan_nop DESC
 ) bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
@@ -70,20 +70,20 @@ SELECT
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
 FROM (
-  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
-    bn.*, bt.cuoc_thi_id, bt.bai_tap_id, bt.diem_dat
-  FROM public.bainop bn
-  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  SELECT DISTINCT ON (btd.cuoc_thi_id, bs.thi_sinh_id)
+    bs.*, btd.cuoc_thi_id, btd.bai_tap_id, btd.diem_dat
+  FROM public.bainop bs
+  JOIN public.baitap btd ON btd.bai_tap_id = bs.bai_tap_id
   JOIN public.dangky dk
-    ON dk.thi_sinh_id = bn.thi_sinh_id
-   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+    ON dk.thi_sinh_id = bs.thi_sinh_id
+   AND dk.cuoc_thi_id = btd.cuoc_thi_id
    AND dk.trang_thai = 'THANH_CONG'
-  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
-    AND bn.tong_diem IS NOT NULL
-  ORDER BY bt.cuoc_thi_id, bn.thi_sinh_id,
-           bn.tong_diem DESC NULLS LAST,
-           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
-           bn.lan_nop DESC
+  WHERE bs.trang_thai = 'DA_CHAM_DIEM'
+    AND bs.tong_diem IS NOT NULL
+  ORDER BY btd.cuoc_thi_id, bs.thi_sinh_id,
+           bs.tong_diem DESC NULLS LAST,
+           bs.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bs.lan_nop DESC
 ) bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id

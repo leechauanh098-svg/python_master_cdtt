@@ -112,6 +112,30 @@ const emptyReportColumns: Record<string, string[]> = {
     'thoi_gian_nop',
     'ket_qua_xet',
   ],
+  contest_school_round_summary: [
+    'vong_thi',
+    'cuoc_thi_id',
+    'ten_cuoc_thi',
+    'bang_dau',
+    'truong_hoc',
+    'so_thi_sinh_du_thi',
+    'so_thi_sinh_dat_yeu_cau',
+    'so_thi_sinh_du_dieu_kien_vao_chung_ket',
+  ],
+  contest_qualifiers_top10: [
+    'cuoc_thi_id',
+    'ten_cuoc_thi',
+    'bang_dau',
+    'thu_hang',
+    'thi_sinh_id',
+    'ho_ten',
+    'truong_hoc',
+    'tong_diem',
+    'thoi_gian_lam_bai_giay',
+    'so_thi_sinh_du_thi_vongloai',
+    'so_suat_top10',
+    'du_dieu_kien_vao_chung_ket',
+  ],
   student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
   transaction_details: [
@@ -271,6 +295,8 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_school_round_summary', title: 'Thống kê thí sinh theo vòng, trường và bảng', description: 'Đếm thí sinh đã thanh toán có bài được chấm, số đạt yêu cầu và số đủ điều kiện vào chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_qualifiers_top10', title: 'Danh sách Top 10% vòng loại vào chung kết', description: 'Xếp riêng theo từng cuộc thi vòng loại và bảng; làm tròn chỉ tiêu lên, giữ tất cả thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_finalists_a', title: 'Kết quả vòng chung kết - Bảng A', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng A đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_finalists_b', title: 'Kết quả vòng chung kết - Bảng B', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng B đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
@@ -1228,6 +1254,16 @@ function ReportContent() {
                 response = await supabase.rpc('fn_bao_cao_ketqua_chungket', {
                   p_ky: period,
                   p_bang: section.reportId === 'contest_finalists_a' ? 'BANG_A' : 'BANG_B',
+                })
+                break
+              case 'contest_school_round_summary':
+                response = await supabase.rpc('fn_bao_cao_thongke_thisinh_theo_vong', {
+                  p_ky: period,
+                })
+                break
+              case 'contest_qualifiers_top10':
+                response = await supabase.rpc('fn_bao_cao_ds_top10_vongloai', {
+                  p_ky: period,
                 })
                 break
               case 'support_top_questions':

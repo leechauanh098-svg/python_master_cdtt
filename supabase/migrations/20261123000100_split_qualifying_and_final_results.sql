@@ -70,3 +70,53 @@ REVOKE ALL ON TABLE public.vw_export_ketqua_vongloai FROM PUBLIC, anon;
 REVOKE ALL ON TABLE public.vw_export_danhsach_chungket FROM PUBLIC, anon;
 GRANT SELECT ON TABLE public.vw_export_ketqua_vongloai TO authenticated;
 GRANT SELECT ON TABLE public.vw_export_danhsach_chungket TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.fn_bao_cao_ketqua_chungket(
+  p_ky varchar DEFAULT NULL
+) RETURNS SETOF jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public, auth, pg_temp
+AS $$
+DECLARE
+  v_employee_id varchar;
+  v_permission boolean := false;
+BEGIN
+  SELECT nv.nhan_vien_id
+  INTO v_employee_id
+  FROM public.nhanvien nv
+  WHERE nv.user_id = auth.uid()
+    AND nv.trang_thai = 'ACTIVE'
+  LIMIT 1;
+
+  IF v_employee_id IS NULL THEN
+    RAISE EXCEPTION 'Không xác định được nhân viên đăng nhập.';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.nhanvien_vaitro_ct nvt
+    JOIN public.vaitro_quyen vq ON vq.role_id = nvt.role_id
+    WHERE nvt.nhan_vien_id = v_employee_id
+      AND vq.permission_id = 'BAO_CAO_HOC_VU'
+  ) INTO v_permission;
+
+  IF NOT v_permission THEN
+    RAISE EXCEPTION 'Không có quyền xem kết quả học vụ.';
+  END IF;
+
+  RETURN QUERY
+  SELECT to_jsonb(r)
+  FROM public.vw_export_danhsach_chungket r
+  WHERE p_ky IS NULL
+     OR r.thoi_gian_nop >= (
+       SELECT tu
+       FROM public.fn_ky_bao_cao(p_ky)
+     )
+  ORDER BY r.bang_dau, r.thu_hang NULLS LAST, r.tong_diem DESC NULLS LAST;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_bao_cao_ketqua_chungket(varchar) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fn_bao_cao_ketqua_chungket(varchar) TO authenticated;

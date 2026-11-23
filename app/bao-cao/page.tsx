@@ -1148,9 +1148,9 @@ function ReportContent() {
                 }
                 break
               case 'contest_finalists':
-                response = await supabase
-                  .from('vw_export_danhsach_chungket')
-                  .select('*')
+                response = await supabase.rpc('fn_bao_cao_ketqua_chungket', {
+                  p_ky: period,
+                })
                 break
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })

@@ -16,6 +16,26 @@ WITH best AS (
    AND dk.trang_thai = 'THANH_CONG'
   WHERE bn.trang_thai = 'DA_CHAM_DIEM'
     AND bn.tong_diem IS NOT NULL
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.thanhtoan tt
+        WHERE tt.thi_sinh_id = bn.thi_sinh_id
+          AND tt.cuoc_thi_id = bt.cuoc_thi_id
+          AND tt.trang_thai_thanh_toan = 'THANH_TOAN_THANH_CONG'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.dangkyweb dkw
+        WHERE dkw.thi_sinh_id = bn.thi_sinh_id
+          AND dkw.bang_dau = (
+            SELECT ts_pay.bang_dau
+            FROM public.thisinh ts_pay
+            WHERE ts_pay.thi_sinh_id = bn.thi_sinh_id
+          )
+          AND dkw.trang_thai_thanh_toan = 'THANH_TOAN_THANH_CONG'
+      )
+    )
   ORDER BY bt.cuoc_thi_id,
            bn.thi_sinh_id,
            bn.tong_diem DESC NULLS LAST,
@@ -73,6 +93,26 @@ WITH best AS (
    AND dk.trang_thai = 'THANH_CONG'
   WHERE bn.trang_thai = 'DA_CHAM_DIEM'
     AND bn.tong_diem IS NOT NULL
+    AND (
+      EXISTS (
+        SELECT 1
+        FROM public.thanhtoan tt
+        WHERE tt.thi_sinh_id = bn.thi_sinh_id
+          AND tt.cuoc_thi_id = bt.cuoc_thi_id
+          AND tt.trang_thai_thanh_toan = 'THANH_TOAN_THANH_CONG'
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.dangkyweb dkw
+        WHERE dkw.thi_sinh_id = bn.thi_sinh_id
+          AND dkw.bang_dau = (
+            SELECT ts_pay.bang_dau
+            FROM public.thisinh ts_pay
+            WHERE ts_pay.thi_sinh_id = bn.thi_sinh_id
+          )
+          AND dkw.trang_thai_thanh_toan = 'THANH_TOAN_THANH_CONG'
+      )
+    )
   ORDER BY bt.cuoc_thi_id,
            bn.thi_sinh_id,
            bn.tong_diem DESC NULLS LAST,

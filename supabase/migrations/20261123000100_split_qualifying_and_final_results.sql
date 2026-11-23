@@ -1,46 +1,53 @@
 CREATE OR REPLACE VIEW public.vw_export_ketqua_vongloai AS
+WITH best AS (
+  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
+    bt.cuoc_thi_id,
+    bt.bai_tap_id,
+    bt.diem_dat,
+    bn.thi_sinh_id,
+    bn.tong_diem,
+    bn.thoi_gian_lam_bai_giay,
+    bn.thoi_gian_nop
+  FROM public.bainop bn
+  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  JOIN public.dangky dk
+    ON dk.thi_sinh_id = bn.thi_sinh_id
+   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+   AND dk.trang_thai = 'THANH_CONG'
+  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+    AND bn.tong_diem IS NOT NULL
+  ORDER BY bt.cuoc_thi_id,
+           bn.thi_sinh_id,
+           bn.tong_diem DESC NULLS LAST,
+           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bn.lan_nop DESC
+)
 SELECT
-  bt.cuoc_thi_id,
+  best.cuoc_thi_id,
   ct.ten_cuoc_thi,
   ts.bang_dau,
   dense_rank() OVER (
-    PARTITION BY bt.cuoc_thi_id, ts.bang_dau
-    ORDER BY bn.tong_diem DESC NULLS LAST, bn.thoi_gian_lam_bai_giay ASC
+    PARTITION BY best.cuoc_thi_id, ts.bang_dau
+    ORDER BY best.tong_diem DESC NULLS LAST,
+             best.thoi_gian_lam_bai_giay ASC NULLS LAST
   ) AS thu_hang,
   ts.thi_sinh_id,
   ts.ho_ten,
   ts.email,
   ts.sdt,
   ts.truong_hoc,
-  bn.tong_diem,
-  bn.thoi_gian_lam_bai_giay,
-  bn.thoi_gian_nop,
+  best.tong_diem,
+  best.thoi_gian_lam_bai_giay,
+  best.thoi_gian_nop,
   CASE
-    WHEN bn.tong_diem >= bt.diem_dat THEN 'ĐẠT YÊU CẦU'
+    WHEN best.tong_diem >= best.diem_dat THEN 'ĐẠT YÊU CẦU'
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
-FROM (
-  SELECT DISTINCT ON (btd.cuoc_thi_id, bs.thi_sinh_id)
-    bs.*, btd.cuoc_thi_id, btd.bai_tap_id, btd.diem_dat
-  FROM public.bainop bs
-  JOIN public.baitap btd ON btd.bai_tap_id = bs.bai_tap_id
-  JOIN public.dangky dk
-    ON dk.thi_sinh_id = bs.thi_sinh_id
-   AND dk.cuoc_thi_id = btd.cuoc_thi_id
-   AND dk.trang_thai = 'THANH_CONG'
-  WHERE bs.trang_thai = 'DA_CHAM_DIEM'
-    AND bs.tong_diem IS NOT NULL
-  ORDER BY btd.cuoc_thi_id, bs.thi_sinh_id,
-           bs.tong_diem DESC NULLS LAST,
-           bs.thoi_gian_lam_bai_giay ASC NULLS LAST,
-           bs.lan_nop DESC
-) bn
-JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
-JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
-JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
-WHERE bn.trang_thai = 'DA_CHAM_DIEM'
-  AND bn.tong_diem IS NOT NULL
-  AND ts.bang_dau IN ('BANG_A', 'BANG_B')
+FROM best
+JOIN public.thisinh ts ON ts.thi_sinh_id = best.thi_sinh_id
+JOIN public.baitap bt ON bt.bai_tap_id = best.bai_tap_id
+JOIN public.cuocthi ct ON ct.cuoc_thi_id = best.cuoc_thi_id
+WHERE ts.bang_dau IN ('BANG_A', 'BANG_B')
   AND bt.bang_dau IN ('BANG_A', 'BANG_B')
   AND ct.ten_cuoc_thi NOT ILIKE '%Chung kết%'
   AND ct.cuoc_thi_id NOT ILIKE '%CK%'
@@ -49,48 +56,55 @@ WHERE bn.trang_thai = 'DA_CHAM_DIEM'
 DROP VIEW IF EXISTS public.vw_export_danhsach_chungket;
 
 CREATE VIEW public.vw_export_danhsach_chungket AS
+WITH best AS (
+  SELECT DISTINCT ON (bt.cuoc_thi_id, bn.thi_sinh_id)
+    bt.cuoc_thi_id,
+    bt.bai_tap_id,
+    bt.diem_dat,
+    bn.thi_sinh_id,
+    bn.tong_diem,
+    bn.thoi_gian_lam_bai_giay,
+    bn.thoi_gian_nop
+  FROM public.bainop bn
+  JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
+  JOIN public.dangky dk
+    ON dk.thi_sinh_id = bn.thi_sinh_id
+   AND dk.cuoc_thi_id = bt.cuoc_thi_id
+   AND dk.trang_thai = 'THANH_CONG'
+  WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+    AND bn.tong_diem IS NOT NULL
+  ORDER BY bt.cuoc_thi_id,
+           bn.thi_sinh_id,
+           bn.tong_diem DESC NULLS LAST,
+           bn.thoi_gian_lam_bai_giay ASC NULLS LAST,
+           bn.lan_nop DESC
+)
 SELECT
-  bt.cuoc_thi_id,
+  best.cuoc_thi_id,
   ct.ten_cuoc_thi,
   ts.bang_dau,
   dense_rank() OVER (
-    PARTITION BY bt.cuoc_thi_id, ts.bang_dau
-    ORDER BY bn.tong_diem DESC NULLS LAST, bn.thoi_gian_lam_bai_giay ASC
+    PARTITION BY best.cuoc_thi_id, ts.bang_dau
+    ORDER BY best.tong_diem DESC NULLS LAST,
+             best.thoi_gian_lam_bai_giay ASC NULLS LAST
   ) AS thu_hang,
   ts.thi_sinh_id,
   ts.ho_ten,
   ts.email,
   ts.sdt,
   ts.truong_hoc,
-  bn.tong_diem,
-  bn.thoi_gian_lam_bai_giay,
-  bn.thoi_gian_nop,
+  best.tong_diem,
+  best.thoi_gian_lam_bai_giay,
+  best.thoi_gian_nop,
   CASE
-    WHEN bn.tong_diem >= bt.diem_dat THEN 'ĐẠT YÊU CẦU'
+    WHEN best.tong_diem >= best.diem_dat THEN 'ĐẠT YÊU CẦU'
     ELSE 'KHÔNG ĐẠT'
   END AS ket_qua_xet
-FROM (
-  SELECT DISTINCT ON (btd.cuoc_thi_id, bs.thi_sinh_id)
-    bs.*, btd.cuoc_thi_id, btd.bai_tap_id, btd.diem_dat
-  FROM public.bainop bs
-  JOIN public.baitap btd ON btd.bai_tap_id = bs.bai_tap_id
-  JOIN public.dangky dk
-    ON dk.thi_sinh_id = bs.thi_sinh_id
-   AND dk.cuoc_thi_id = btd.cuoc_thi_id
-   AND dk.trang_thai = 'THANH_CONG'
-  WHERE bs.trang_thai = 'DA_CHAM_DIEM'
-    AND bs.tong_diem IS NOT NULL
-  ORDER BY btd.cuoc_thi_id, bs.thi_sinh_id,
-           bs.tong_diem DESC NULLS LAST,
-           bs.thoi_gian_lam_bai_giay ASC NULLS LAST,
-           bs.lan_nop DESC
-) bn
-JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
-JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
-JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
-WHERE bn.trang_thai = 'DA_CHAM_DIEM'
-  AND bn.tong_diem IS NOT NULL
-  AND ts.bang_dau IN ('BANG_A', 'BANG_B')
+FROM best
+JOIN public.thisinh ts ON ts.thi_sinh_id = best.thi_sinh_id
+JOIN public.baitap bt ON bt.bai_tap_id = best.bai_tap_id
+JOIN public.cuocthi ct ON ct.cuoc_thi_id = best.cuoc_thi_id
+WHERE ts.bang_dau IN ('BANG_A', 'BANG_B')
   AND (
     ct.ten_cuoc_thi ILIKE '%Chung kết%'
     OR ct.cuoc_thi_id ILIKE '%CK%'

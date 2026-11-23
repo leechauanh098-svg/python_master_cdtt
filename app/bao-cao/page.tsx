@@ -67,6 +67,20 @@ const emptyReportColumns: Record<string, string[]> = {
     'thu_hang',
     'ket_qua_xet',
   ],
+  contest_ranking_a: [
+    'hang',
+    'thi_sinh_id',
+    'ho_ten',
+    'truong_hoc',
+    'tong_diem',
+  ],
+  contest_ranking_b: [
+    'hang',
+    'thi_sinh_id',
+    'ho_ten',
+    'truong_hoc',
+    'tong_diem',
+  ],
   student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
   transaction_details: [
@@ -225,9 +239,10 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_results', title: 'Kết quả vòng sơ loại', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_top56', title: '56 thí sinh có thứ hạng cao nhất', description: 'Hiển thị thí sinh có kết quả vòng sơ loại đã chấm điểm; nếu chưa đủ 56, hệ thống chưa có đủ bài thi hợp lệ.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_finalists', title: 'Danh sách thí sinh chung kết và xác nhận tham gia', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_ranking_a', title: 'Xếp hạng giải thưởng - Bảng A', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_ranking_b', title: 'Xếp hạng giải thưởng - Bảng B', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_finalists', title: 'Kết quả vòng chung kết', description: 'Danh sách thí sinh chung kết và xác nhận tham gia, không xuất hiện trong kết quả vòng loại.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
@@ -1121,6 +1136,12 @@ function ReportContent() {
                     .sort((a, b) => Number(b.tong_diem) - Number(a.tong_diem))
                   response = { data: certificates, error: null }
                 }
+                break
+              case 'contest_ranking_a':
+                response = await supabase.rpc('fn_baocao_xep_hang_vongloai', { p_bang: 'BANG_A' })
+                break
+              case 'contest_ranking_b':
+                response = await supabase.rpc('fn_baocao_xep_hang_vongloai', { p_bang: 'BANG_B' })
                 break
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })

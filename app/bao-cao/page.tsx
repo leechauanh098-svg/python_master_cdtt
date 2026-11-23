@@ -67,19 +67,31 @@ const emptyReportColumns: Record<string, string[]> = {
     'thu_hang',
     'ket_qua_xet',
   ],
-  contest_ranking_a: [
-    'hang',
+  contest_results: [
+    'cuoc_thi_id',
+    'ten_cuoc_thi',
+    'bang_dau',
+    'thu_hang',
     'thi_sinh_id',
     'ho_ten',
     'truong_hoc',
     'tong_diem',
+    'thoi_gian_lam_bai_giay',
+    'thoi_gian_nop',
+    'ket_qua_xet',
   ],
-  contest_ranking_b: [
-    'hang',
+  contest_finalists: [
+    'cuoc_thi_id',
+    'ten_cuoc_thi',
+    'bang_dau',
+    'thu_hang',
     'thi_sinh_id',
     'ho_ten',
     'truong_hoc',
     'tong_diem',
+    'thoi_gian_lam_bai_giay',
+    'thoi_gian_nop',
+    'ket_qua_xet',
   ],
   student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
@@ -240,8 +252,6 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_ranking_a', title: 'Xếp hạng giải thưởng - Bảng A', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_ranking_b', title: 'Xếp hạng giải thưởng - Bảng B', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_finalists', title: 'Kết quả vòng chung kết', description: 'Danh sách thí sinh chung kết và xác nhận tham gia, không xuất hiện trong kết quả vòng loại.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
@@ -1137,11 +1147,10 @@ function ReportContent() {
                   response = { data: certificates, error: null }
                 }
                 break
-              case 'contest_ranking_a':
-                response = await supabase.rpc('fn_baocao_xep_hang_vongloai', { p_bang: 'BANG_A' })
-                break
-              case 'contest_ranking_b':
-                response = await supabase.rpc('fn_baocao_xep_hang_vongloai', { p_bang: 'BANG_B' })
+              case 'contest_finalists':
+                response = await supabase
+                  .from('vw_export_danhsach_chungket')
+                  .select('*')
                 break
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })

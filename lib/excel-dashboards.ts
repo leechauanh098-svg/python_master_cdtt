@@ -369,12 +369,6 @@ function dashboardMetrics(
     const schoolAverageChart = rowsChart('Điểm trung bình CT02 theo trường', schoolAverages, 'truong_hoc',
       [{ key: 'gia_tri_trung_binh', name: 'Điểm trung bình' }], 'bar', { direction: 'bar', showValues: true })
     addChart('contest_results', schoolAverageChart)
-    const rankingA = rowsFor(datasets, 'contest_ranking_a').slice(0, 10)
-    const rankingB = rowsFor(datasets, 'contest_ranking_b').slice(0, 10)
-    const topA = rowsChart('Xếp hạng Bảng A', rankingA, 'ho_ten', [{ key: 'tong_diem', name: 'Tổng điểm' }], 'bar', { direction: 'bar', showValues: true })
-    const topB = rowsChart('Xếp hạng Bảng B', rankingB, 'ho_ten', [{ key: 'tong_diem', name: 'Tổng điểm' }], 'bar', { direction: 'bar', showValues: true })
-    addChart('contest_ranking_a', topA)
-    addChart('contest_ranking_b', topB)
     const detailRows = rowsFor(datasets, 'submission_details').filter((row) => numberValue(row.diem_toi_da) != null && Number(row.diem_toi_da) > 0)
     const questionTotals = aggregateQuestionScores(detailRows)
     const questionChart = chart('Tỷ lệ điểm đạt được theo câu hỏi', questionTotals.categories,
@@ -594,13 +588,13 @@ function dashboardMetrics(
     'Tài chính': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
     Marketing: ['lead_pipeline', 'student_utm'],
     'Tài trợ/đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'sponsor_revenue_by_province', 'sponsor_trend'],
-    'Học thuật/kết quả thi': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_certificates', 'contest_results', 'contest_ranking_a', 'contest_ranking_b', 'contest_finalists', 'submission_details'],
+    'Học thuật/kết quả thi': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_certificates', 'contest_results', 'contest_finalists', 'submission_details'],
     'Hệ thống': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
     'Hỗ trợ': ['support_by_status', 'support_by_entity', 'support_faq_summary', 'support_faq_categories', 'support_conversations'],
     'Tổng quan': ['overview_summary', 'lead_pipeline', 'overview_progress', 'overview_enrollment_funnel'],
     'Thí sinh': ['student_summary', 'student_status', 'student_schools', 'student_school_scores', 'student_utm'],
     'Doanh thu': ['revenue_summary', 'payment_funnel', 'revenue_by_province', 'revenue_by_region', 'revenue_trend', 'revenue_by_channel', 'revenue_reconciliation', 'transaction_details'],
-    'Học vụ': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_certificates', 'contest_results', 'contest_ranking_a', 'contest_ranking_b', 'contest_finalists', 'submission_details'],
+    'Học vụ': ['submission_status', 'submission_failures', 'submission_failures_by_province', 'contest_rounds', 'contest_certificates', 'contest_results', 'contest_finalists', 'submission_details'],
     'Đối tác': ['sponsor_summary', 'sponsor_funnel', 'sponsor_tiers', 'sponsor_list', 'supplier_list', 'partner_referral_conversion', 'sponsor_revenue_by_province', 'sponsor_trend', 'sponsor_daily_revenue'],
     'Bảo mật': ['import_sessions', 'import_errors', 'import_quality', 'security_log'],
   }

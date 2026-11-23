@@ -82,7 +82,7 @@ const emptyReportColumns: Record<string, string[]> = {
     'thoi_gian_nop',
     'ket_qua_xet',
   ],
-  contest_finalists_a: [
+  contest_final_results: [
     'cuoc_thi_id',
     'ten_cuoc_thi',
     'bang_dau',
@@ -96,36 +96,12 @@ const emptyReportColumns: Record<string, string[]> = {
     'thoi_gian_lam_bai_giay',
     'thoi_gian_nop',
     'ket_qua_xet',
-  ],
-  contest_finalists_b: [
-    'cuoc_thi_id',
-    'ten_cuoc_thi',
-    'bang_dau',
-    'thu_hang',
-    'thi_sinh_id',
-    'ho_ten',
-    'email',
-    'sdt',
-    'truong_hoc',
-    'tong_diem',
-    'thoi_gian_lam_bai_giay',
-    'thoi_gian_nop',
-    'ket_qua_xet',
-  ],
-  contest_school_round_summary: [
-    'vong_thi',
-    'cuoc_thi_id',
-    'ten_cuoc_thi',
-    'bang_dau',
-    'truong_hoc',
-    'so_thi_sinh_du_thi',
-    'so_thi_sinh_dat_yeu_cau',
-    'so_thi_sinh_du_dieu_kien_vao_chung_ket',
   ],
   contest_qualifiers_top10: [
     'cuoc_thi_id',
     'ten_cuoc_thi',
     'bang_dau',
+    'tinh_thanh',
     'thu_hang',
     'thi_sinh_id',
     'ho_ten',
@@ -293,13 +269,10 @@ const reportSections: Record<ReportTab, ReportCategory> = {
     sections: [
       { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_school_round_summary', title: 'Thống kê thí sinh theo vòng, trường và bảng', description: 'Đếm thí sinh đã thanh toán có bài được chấm, số đạt yêu cầu và số đủ điều kiện vào chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_qualifiers_top10', title: 'Danh sách Top 10% vòng loại vào chung kết', description: 'Xếp riêng theo từng cuộc thi vòng loại và bảng; làm tròn chỉ tiêu lên, giữ tất cả thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_finalists_a', title: 'Kết quả vòng chung kết - Bảng A', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng A đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_finalists_b', title: 'Kết quả vòng chung kết - Bảng B', description: 'Điểm và thứ hạng chung kết của thí sinh Bảng B đã thanh toán.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'submission_details', title: 'Chi tiết bài làm và nhận xét', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_final_results', title: 'Kết quả vòng chung kết', description: 'Điểm và thứ hạng của thí sinh đã thanh toán, chia theo Bảng A và Bảng B.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_qualifiers_top10', title: 'Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Xếp riêng theo từng cuộc thi và bảng đấu; hiển thị tỉnh/thành, làm tròn chỉ tiêu lên và giữ thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
     ],
@@ -562,6 +535,12 @@ function ReportContent() {
     student_school_scores: exportRows(results.student_school_scores).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'ty_le_xuat_sac_pct')),
     ),
+    contest_qualifiers_top10: exportRows(results.contest_qualifiers_top10).sort((a, b) =>
+      String(a.cuoc_thi_id ?? '').localeCompare(String(b.cuoc_thi_id ?? ''))
+      || String(a.bang_dau ?? '').localeCompare(String(b.bang_dau ?? ''))
+      || String(a.tinh_thanh ?? '').localeCompare(String(b.tinh_thanh ?? ''), 'vi')
+      || Number(a.thu_hang ?? 0) - Number(b.thu_hang ?? 0),
+    ),
     student_utm: exportRows(results.student_utm),
     sponsor_list: exportRows(results.sponsor_list).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => !['brand_reach', 'luot_tuong_tac'].includes(key.toLowerCase()))),
@@ -764,7 +743,6 @@ function ReportContent() {
         right: { style: 'thin', color: { rgb: 'D8E1EC' } },
       }
       const includeDashboardSheet = !reportIds || reportIds.length > 1 || reportIds.includes('overview_summary')
-      const detailSheetOffset = includeDashboardSheet ? 1 : 0
       if (includeDashboardSheet) {
         const dashboardColumnCount = 12
         const dashboardRows: string[][] = []
@@ -898,8 +876,130 @@ function ReportContent() {
         XLSX.utils.book_append_sheet(workbook, dashboardWorksheet, safeSheetName('Tổng quan', usedNames))
       }
 
-      excelDatasets.forEach(({ reportId, title, rows, visualization, hasData, emptyColumns, emptyMessage }, datasetIndex) => {
-        const sheetIndex = datasetIndex + detailSheetOffset
+      const groupedWorkbookTitles: Record<string, string> = {
+        contest_results: 'Kết quả vòng loại',
+        contest_qualifiers_top10: 'Top 10% vào chung kết',
+        contest_final_results: 'Kết quả chung kết',
+      }
+      excelDatasets.forEach(({ reportId, title, rows, visualization, hasData, emptyColumns, emptyMessage }) => {
+        const groupedWorkbookTitle = groupedWorkbookTitles[reportId]
+        if (groupedWorkbookTitle) {
+          const columns = emptyColumns ?? Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+          const groups = [
+            { key: 'BANG_A', label: reportId === 'contest_qualifiers_top10' ? 'Top 10% vòng loại - Bảng A' : 'Bảng A' },
+            { key: 'BANG_B', label: reportId === 'contest_qualifiers_top10' ? 'Top 10% vòng loại - Bảng B' : 'Bảng B' },
+          ]
+          const sheetRows: unknown[][] = [
+            [groupedWorkbookTitle],
+            [`Kỳ báo cáo: ${period}`],
+            [`Xuất lúc: ${new Date().toLocaleString('vi-VN')}`],
+            [],
+          ]
+          const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [0, 1, 2].map((row) => ({
+            s: { r: row, c: 0 },
+            e: { r: row, c: Math.max(columns.length - 1, 0) },
+          }))
+          const headerRows: number[] = []
+          const dataRanges: { start: number; end: number }[] = []
+          const emptyRows: number[] = []
+
+          groups.forEach((group) => {
+            const groupedRows = rows.filter((row) => String(row.bang_dau ?? '').trim().toUpperCase() === group.key)
+            const sectionRow = sheetRows.length
+            sheetRows.push([group.label])
+            merges.push({
+              s: { r: sectionRow, c: 0 },
+              e: { r: sectionRow, c: Math.max(columns.length - 1, 0) },
+            })
+            const headerRow = sheetRows.length
+            headerRows.push(headerRow)
+            sheetRows.push(columns.map(formatFieldLabel))
+            const start = sheetRows.length
+            sheetRows.push(...groupedRows.map((row) => columns.map((column) => exportValue(row[column] ?? null, column))))
+            if (groupedRows.length) {
+              dataRanges.push({ start, end: sheetRows.length - 1 })
+            } else {
+              const emptyRow = sheetRows.length
+              sheetRows.push([emptyMessage ?? 'Không có dữ liệu trong bảng này.'])
+              emptyRows.push(emptyRow)
+              merges.push({
+                s: { r: emptyRow, c: 0 },
+                e: { r: emptyRow, c: Math.max(columns.length - 1, 0) },
+              })
+            }
+            sheetRows.push([])
+          })
+
+          const worksheet = XLSX.utils.aoa_to_sheet(sheetRows)
+          worksheet['!merges'] = merges
+          worksheet['!cols'] = columns.map((column) => ({
+            wch: Math.min(42, Math.max(
+              14,
+              formatFieldLabel(column).length + 2,
+              ...rows.map((row) => Math.min(exportCell(row[column], column).length + 2, 42)),
+            )),
+          }))
+          worksheet['!rows'] = sheetRows.map((_, row) => ({ hpt: row === 0 ? 32 : row < 3 ? 20 : 24 }))
+          worksheet['!rows'][3] = { hpt: 10 }
+          for (let columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
+            for (const row of [0, 1, 2]) {
+              const address = XLSX.utils.encode_cell({ r: row, c: columnIndex })
+              if (worksheet[address]) worksheet[address].s = row === 0 ? titleStyle : metadataStyle
+            }
+          }
+          groups.forEach((group, index) => {
+            const sectionRow = headerRows[index] - 1
+            for (let columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
+              const sectionAddress = XLSX.utils.encode_cell({ r: sectionRow, c: columnIndex })
+              if (worksheet[sectionAddress]) {
+                worksheet[sectionAddress].s = {
+                  fill: { fgColor: { rgb: 'DBEAFE' } },
+                  font: { bold: true, color: { rgb: '1E3A8A' }, sz: 11 },
+                  alignment: { horizontal: 'left', vertical: 'center' },
+                }
+              }
+              const headerAddress = XLSX.utils.encode_cell({ r: headerRows[index], c: columnIndex })
+              if (worksheet[headerAddress]) worksheet[headerAddress].s = headerStyle
+            }
+          })
+          dataRanges.forEach(({ start, end }) => {
+            for (let row = start; row <= end; row += 1) {
+              columns.forEach((column, columnIndex) => {
+                const address = XLSX.utils.encode_cell({ r: row, c: columnIndex })
+                const cell = worksheet[address]
+                if (!cell) return
+                cell.s = {
+                  fill: { fgColor: { rgb: row % 2 === 0 ? 'FFFFFF' : 'F1F5F9' } },
+                  font: { color: { rgb: '1E293B' }, sz: 10 },
+                  alignment: {
+                    horizontal: typeof cell.v === 'number' ? 'right' : 'left',
+                    vertical: 'center',
+                    wrapText: true,
+                  },
+                  border,
+                  ...(typeof cell.v === 'number'
+                    ? { numFmt: Number.isInteger(cell.v) ? '#,##0' : '#,##0.##' }
+                    : {}),
+                }
+              })
+            }
+          })
+          emptyRows.forEach((row) => {
+            const noteAddress = XLSX.utils.encode_cell({ r: row, c: 0 })
+            if (worksheet[noteAddress]) {
+              worksheet[noteAddress].s = {
+                fill: { fgColor: { rgb: 'FFF7ED' } },
+                font: { color: { rgb: '9A3412' }, italic: true, sz: 10 },
+                alignment: { vertical: 'center', wrapText: true },
+                border,
+              }
+            }
+          })
+          XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(groupedWorkbookTitle, usedNames))
+          return
+        }
+
+        const sheetIndex = workbook.SheetNames.length
         const columns = emptyColumns ?? Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
         const headerRow = 4
         const firstDataRow = headerRow + 1
@@ -1021,58 +1121,6 @@ function ReportContent() {
           })
         }
         XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(title, usedNames))
-
-        if (reportId === 'contest_results' || reportId.startsWith('contest_finalists_')) {
-          const resultColumns = columns
-          const resultGroups = [
-            { table: 'BANG_A', outcome: 'ĐẠT YÊU CẦU', label: 'Bảng A - Đạt' },
-            { table: 'BANG_A', outcome: 'KHÔNG ĐẠT', label: 'Bảng A - Không đạt' },
-            { table: 'BANG_B', outcome: 'ĐẠT YÊU CẦU', label: 'Bảng B - Đạt' },
-            { table: 'BANG_B', outcome: 'KHÔNG ĐẠT', label: 'Bảng B - Không đạt' },
-          ]
-
-          resultGroups.forEach((group) => {
-            const groupedRows = rows.filter((row) => {
-              const table = String(row.bang_dau ?? '').toUpperCase()
-              const outcome = String(row.ket_qua_xet ?? '').trim().toUpperCase()
-              return table === group.table && (
-                outcome === group.outcome
-                || (group.outcome === 'ĐẠT YÊU CẦU' && outcome.includes('ĐẠT') && !outcome.includes('KHÔNG'))
-                || (group.outcome === 'KHÔNG ĐẠT' && outcome.includes('KHÔNG'))
-              )
-            })
-            const sheetTitle = `${title} - ${group.label}`
-            const splitRows = [
-              [sheetTitle],
-              [`Kỳ báo cáo: ${period}`],
-              [`Xuất lúc: ${new Date().toLocaleString('vi-VN')}`],
-              [],
-              resultColumns.map(formatFieldLabel),
-              ...groupedRows.map((row) => resultColumns.map((column) => exportValue(row[column] ?? null, column))),
-              ...(groupedRows.length === 0 ? [['Không có dữ liệu trong nhóm này']] : []),
-            ]
-            const splitWorksheet = XLSX.utils.aoa_to_sheet(splitRows)
-            splitWorksheet['!cols'] = resultColumns.map((column) => ({
-              wch: Math.min(42, Math.max(14, formatFieldLabel(column).length + 2)),
-            }))
-            splitWorksheet['!merges'] = [0, 1, 2].map((rowIndex) => ({
-              s: { r: rowIndex, c: 0 },
-              e: { r: rowIndex, c: Math.max(resultColumns.length - 1, 0) },
-            }))
-            splitWorksheet['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 20 }, { hpt: 10 }, { hpt: 28 }]
-            resultColumns.forEach((_, columnIndex) => {
-              ;[0, 1, 2].forEach((rowIndex) => {
-                const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })
-                if (splitWorksheet[address]) {
-                  splitWorksheet[address].s = rowIndex === 0 ? titleStyle : metadataStyle
-                }
-              })
-              const headerAddress = XLSX.utils.encode_cell({ r: 4, c: columnIndex })
-              if (splitWorksheet[headerAddress]) splitWorksheet[headerAddress].s = headerStyle
-            })
-            XLSX.utils.book_append_sheet(workbook, splitWorksheet, safeSheetName(sheetTitle, usedNames))
-          })
-        }
       })
       const workbookOutput = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
       const output = addExcelCharts(workbookOutput, chartSources)
@@ -1249,18 +1297,20 @@ function ReportContent() {
                   response = { data: certificates, error: null }
                 }
                 break
-              case 'contest_finalists_a':
-              case 'contest_finalists_b':
-                response = await supabase.rpc('fn_bao_cao_ketqua_chungket', {
-                  p_ky: period,
-                  p_bang: section.reportId === 'contest_finalists_a' ? 'BANG_A' : 'BANG_B',
-                })
+              case 'contest_final_results': {
+                const [tableA, tableB] = await Promise.all(
+                  ['BANG_A', 'BANG_B'].map((bracket) => supabase.rpc('fn_bao_cao_ketqua_chungket', {
+                    p_ky: period,
+                    p_bang: bracket,
+                  })),
+                )
+                const error = tableA.error ?? tableB.error
+                response = {
+                  data: error ? null : [...exportRows(tableA.data), ...exportRows(tableB.data)],
+                  error,
+                }
                 break
-              case 'contest_school_round_summary':
-                response = await supabase.rpc('fn_bao_cao_thongke_thisinh_theo_vong', {
-                  p_ky: period,
-                })
-                break
+              }
               case 'contest_qualifiers_top10':
                 response = await supabase.rpc('fn_bao_cao_ds_top10_vongloai', {
                   p_ky: period,

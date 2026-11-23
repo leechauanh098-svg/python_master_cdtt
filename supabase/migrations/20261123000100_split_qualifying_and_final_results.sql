@@ -23,7 +23,9 @@ FROM public.bainop bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
 JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
-WHERE ts.bang_dau IN ('BANG_A', 'BANG_B')
+WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+  AND bn.tong_diem IS NOT NULL
+  AND ts.bang_dau IN ('BANG_A', 'BANG_B')
   AND bt.bang_dau IN ('BANG_A', 'BANG_B')
   AND ct.ten_cuoc_thi NOT ILIKE '%Chung kết%'
   AND ct.cuoc_thi_id NOT ILIKE '%CK%'
@@ -56,7 +58,9 @@ FROM public.bainop bn
 JOIN public.thisinh ts ON ts.thi_sinh_id = bn.thi_sinh_id
 JOIN public.baitap bt ON bt.bai_tap_id = bn.bai_tap_id
 JOIN public.cuocthi ct ON ct.cuoc_thi_id = bt.cuoc_thi_id
-WHERE ts.bang_dau IN ('BANG_A', 'BANG_B')
+WHERE bn.trang_thai = 'DA_CHAM_DIEM'
+  AND bn.tong_diem IS NOT NULL
+  AND ts.bang_dau IN ('BANG_A', 'BANG_B')
   AND (
     ct.ten_cuoc_thi ILIKE '%Chung kết%'
     OR ct.cuoc_thi_id ILIKE '%CK%'

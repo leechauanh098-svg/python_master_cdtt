@@ -975,6 +975,58 @@ function ReportContent() {
           })
         }
         XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(title, usedNames))
+
+        if (reportId === 'contest_results' || reportId === 'contest_finalists') {
+          const resultColumns = columns
+          const resultGroups = [
+            { table: 'BANG_A', outcome: 'ĐẠT YÊU CẦU', label: 'Bảng A - Đạt' },
+            { table: 'BANG_A', outcome: 'KHÔNG ĐẠT', label: 'Bảng A - Không đạt' },
+            { table: 'BANG_B', outcome: 'ĐẠT YÊU CẦU', label: 'Bảng B - Đạt' },
+            { table: 'BANG_B', outcome: 'KHÔNG ĐẠT', label: 'Bảng B - Không đạt' },
+          ]
+
+          resultGroups.forEach((group) => {
+            const groupedRows = rows.filter((row) => {
+              const table = String(row.bang_dau ?? '').toUpperCase()
+              const outcome = String(row.ket_qua_xet ?? '').trim().toUpperCase()
+              return table === group.table && (
+                outcome === group.outcome
+                || (group.outcome === 'ĐẠT YÊU CẦU' && outcome.includes('ĐẠT') && !outcome.includes('KHÔNG'))
+                || (group.outcome === 'KHÔNG ĐẠT' && outcome.includes('KHÔNG'))
+              )
+            })
+            const sheetTitle = `${title} - ${group.label}`
+            const splitRows = [
+              [sheetTitle],
+              [`Kỳ báo cáo: ${period}`],
+              [`Xuất lúc: ${new Date().toLocaleString('vi-VN')}`],
+              [],
+              resultColumns.map(formatFieldLabel),
+              ...groupedRows.map((row) => resultColumns.map((column) => exportValue(row[column] ?? null, column))),
+              ...(groupedRows.length === 0 ? [['Không có dữ liệu trong nhóm này']] : []),
+            ]
+            const splitWorksheet = XLSX.utils.aoa_to_sheet(splitRows)
+            splitWorksheet['!cols'] = resultColumns.map((column) => ({
+              wch: Math.min(42, Math.max(14, formatFieldLabel(column).length + 2)),
+            }))
+            splitWorksheet['!merges'] = [0, 1, 2].map((rowIndex) => ({
+              s: { r: rowIndex, c: 0 },
+              e: { r: rowIndex, c: Math.max(resultColumns.length - 1, 0) },
+            }))
+            splitWorksheet['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 20 }, { hpt: 10 }, { hpt: 28 }]
+            resultColumns.forEach((_, columnIndex) => {
+              ;[0, 1, 2].forEach((rowIndex) => {
+                const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })
+                if (splitWorksheet[address]) {
+                  splitWorksheet[address].s = rowIndex === 0 ? titleStyle : metadataStyle
+                }
+              })
+              const headerAddress = XLSX.utils.encode_cell({ r: 4, c: columnIndex })
+              if (splitWorksheet[headerAddress]) splitWorksheet[headerAddress].s = headerStyle
+            })
+            XLSX.utils.book_append_sheet(workbook, splitWorksheet, safeSheetName(sheetTitle, usedNames))
+          })
+        }
       })
       const workbookOutput = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
       const output = addExcelCharts(workbookOutput, chartSources)

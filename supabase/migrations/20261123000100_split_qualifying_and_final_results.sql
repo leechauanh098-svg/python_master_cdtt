@@ -29,7 +29,9 @@ WHERE ts.bang_dau IN ('BANG_A', 'BANG_B')
   AND ct.cuoc_thi_id NOT ILIKE '%CK%'
   AND ct.cuoc_thi_id <> 'CT03';
 
-CREATE OR REPLACE VIEW public.vw_export_danhsach_chungket AS
+DROP VIEW IF EXISTS public.vw_export_danhsach_chungket;
+
+CREATE VIEW public.vw_export_danhsach_chungket AS
 SELECT
   bt.cuoc_thi_id,
   ct.ten_cuoc_thi,

@@ -58,16 +58,14 @@ type ReportExportDataset = {
 type ReportCategory = { permissions: string[]; sections: SectionDefinition[] }
 
 const emptyReportColumns: Record<string, string[]> = {
-  contest_prize_structure: [
-    'giai_thuong',
-    'so_luong_bang_a',
-    'gia_tri_bang_a',
-    'gia_tri_bang_b',
-    'so_luong_bang_b',
-  ],
-  contest_certificate_status: [
-    'noi_dung',
-    'gia_tri',
+  contest_certificates: [
+    'thi_sinh_id',
+    'ho_ten',
+    'bang_dau',
+    'truong_hoc',
+    'tong_diem',
+    'thu_hang',
+    'ket_qua_xet',
   ],
   student_status: ['trang_thai', 'so_luong'],
   revenue_by_channel: ['kenh', 'so_luong', 'doanh_thu', 'ty_le_pct'],
@@ -226,8 +224,7 @@ const reportSections: Record<ReportTab, ReportCategory> = {
     sections: [
       { reportId: 'contest_rounds', title: 'Các vòng thi', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_status', title: 'Trạng thái bài nộp gần nhất theo thí sinh', visualization: 'pie', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_prize_structure', title: 'Cơ cấu giải thưởng', description: 'Cơ cấu giải theo Bảng A và Bảng B; tổng cộng 56 giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_certificate_status', title: 'Chứng chỉ năng lực quốc tế COS Pro', description: 'Điểm từ 600/1000 trở lên được công nhận chứng chỉ COS Pro dù không thuộc Top chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_results', title: 'Kết quả vòng sơ loại', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_top56', title: '56 thí sinh có thứ hạng cao nhất', description: 'Hiển thị thí sinh có kết quả vòng sơ loại đã chấm điểm; nếu chưa đủ 56, hệ thống chưa có đủ bài thi hợp lệ.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_finalists', title: 'Danh sách thí sinh chung kết và xác nhận tham gia', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
@@ -1104,29 +1101,27 @@ function ReportContent() {
           sections.filter((section) => section.reportId !== 'student_status').map(async (section) => {
             let response: { data: unknown; error: { message: string } | null }
             switch (section.reportId) {
-            case 'contest_prize_structure':
-              response = {
-                data: [
-                  { giai_thuong: 'Giải Nhất', so_luong_bang_a: 1, gia_tri_bang_a: 5000000, gia_tri_bang_b: 7000000, so_luong_bang_b: 1 },
-                  { giai_thuong: 'Giải Nhì', so_luong_bang_a: 1, gia_tri_bang_a: 4000000, gia_tri_bang_b: 5000000, so_luong_bang_b: 1 },
-                  { giai_thuong: 'Giải Ba', so_luong_bang_a: 1, gia_tri_bang_a: 2000000, gia_tri_bang_b: 3000000, so_luong_bang_b: 1 },
-                  { giai_thuong: 'Giải Khuyến khích', so_luong_bang_a: 10, gia_tri_bang_a: 300000, gia_tri_bang_b: 400000, so_luong_bang_b: 20 },
-                  { giai_thuong: 'Giải Tiềm năng', so_luong_bang_a: 20, gia_tri_bang_a: 200000, gia_tri_bang_b: null, so_luong_bang_b: null },
-                  { giai_thuong: 'Tổng số giải', so_luong_bang_a: 33, gia_tri_bang_a: null, gia_tri_bang_b: null, so_luong_bang_b: 23 },
-                ],
-                error: null,
-              }
-              break
-            case 'contest_certificate_status':
-              response = {
-                data: [
-                  { noi_dung: 'Ngưỡng công nhận chứng chỉ', gia_tri: '600/1000 điểm' },
-                  { noi_dung: 'Ý nghĩa kết quả', gia_tri: 'Đạt chứng chỉ COS Pro dù không lọt Top vào vòng Chung kết' },
-                  { noi_dung: 'Phân loại kết quả', gia_tri: 'Thứ hạng xét giải và mức điểm công nhận chứng chỉ được thống kê độc lập' },
-                ],
-                error: null,
-              }
-              break
+              case 'contest_certificates':
+                response = await supabase.rpc('fn_bao_cao_du_lieu', {
+                  p_ma_bao_cao: 'contest_results',
+                  p_ky: period,
+                })
+                if (!response.error) {
+                  const certificates = exportRows(response.data)
+                    .filter((row) => Number(row.tong_diem) >= 600)
+                    .map((row) => ({
+                      thi_sinh_id: row.thi_sinh_id,
+                      ho_ten: row.ho_ten,
+                      bang_dau: row.bang_dau,
+                      truong_hoc: row.truong_hoc,
+                      tong_diem: row.tong_diem,
+                      thu_hang: row.thu_hang,
+                      ket_qua_xet: 'ĐẠT CHỨNG CHỈ COS PRO',
+                    }))
+                    .sort((a, b) => Number(b.tong_diem) - Number(a.tong_diem))
+                  response = { data: certificates, error: null }
+                }
+                break
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
                 break
@@ -1308,21 +1303,6 @@ function ReportContent() {
       <div className="space-y-5">
         {visibleSections.map((section) => (
           <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
-            {section.reportId === 'contest_certificate_status' && (
-              <div className="mb-3 rounded-2xl border border-cyan-200 bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 p-5 text-slate-950 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-lg font-black">Đạt từ 600/1000 là có chứng chỉ COS Pro</p>
-                    <p className="mt-2 text-sm font-semibold leading-6">
-                      Thí sinh không lọt Top vào Vòng Chung kết vẫn nhận Chứng chỉ năng lực quốc tế COS Pro nếu đạt điểm từ 600/1000 trở lên.
-                    </p>
-                  </div>
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/50 bg-white/25 text-2xl" aria-hidden="true">
-                    🏅
-                  </div>
-                </div>
-              </div>
-            )}
             <DataPanel
               title={section.title}
               description={section.reportId === 'overview_registration_trend'

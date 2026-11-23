@@ -272,7 +272,7 @@ const reportSections: Record<ReportTab, ReportCategory> = {
       { reportId: 'contest_results', title: 'Kết quả vòng loại', description: 'Chỉ gồm bài thi của các vòng loại theo Bảng A và Bảng B, không gồm Vòng Chung kết.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_final_results', title: 'Kết quả vòng chung kết', description: 'Điểm và thứ hạng của thí sinh đã thanh toán trong tất cả các vòng chung kết, không giới hạn theo kỳ báo cáo.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'contest_certificates', title: 'Danh sách thí sinh được chứng chỉ COS Pro', description: 'Danh sách thí sinh đạt từ 600/1000 điểm; dữ liệu tách biệt với thứ hạng xét giải.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
-      { reportId: 'contest_qualifiers_top10', title: 'Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Lấy danh sách của tất cả các vòng loại, xếp riêng theo từng cuộc thi và bảng đấu; hiển thị tỉnh/thành, làm tròn chỉ tiêu lên và giữ thí sinh đồng hạng tại ngưỡng.', visualization: 'table', requiredPermission: 'BAO_CAO_HOC_VU' },
+      { reportId: 'contest_qualifiers_top10', title: 'Tỉ lệ Top 10% thí sinh vòng loại vào chung kết theo tỉnh/thành', description: 'Gộp Bảng A và Bảng B. Tỷ lệ là số lượt Top 10% của tỉnh/thành chia cho tổng lượt dự thi vòng loại của tỉnh/thành.', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures', title: 'Bài tập có tỷ lệ không đạt cao', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
       { reportId: 'submission_failures_by_province', title: 'Tỷ lệ không đạt theo tỉnh/thành', visualization: 'bar-horizontal', requiredPermission: 'BAO_CAO_HOC_VU' },
     ],
@@ -535,12 +535,7 @@ function ReportContent() {
     student_school_scores: exportRows(results.student_school_scores).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'ty_le_xuat_sac_pct')),
     ),
-    contest_qualifiers_top10: exportRows(results.contest_qualifiers_top10).sort((a, b) =>
-      String(a.cuoc_thi_id ?? '').localeCompare(String(b.cuoc_thi_id ?? ''))
-      || String(a.bang_dau ?? '').localeCompare(String(b.bang_dau ?? ''))
-      || String(a.tinh_thanh ?? '').localeCompare(String(b.tinh_thanh ?? ''), 'vi')
-      || Number(a.thu_hang ?? 0) - Number(b.thu_hang ?? 0),
-    ),
+    contest_qualifiers_top10: exportRows(results.contest_qualifiers_top10),
     student_utm: exportRows(results.student_utm),
     sponsor_list: exportRows(results.sponsor_list).map((row) =>
       Object.fromEntries(Object.entries(row).filter(([key]) => !['brand_reach', 'luot_tuong_tac'].includes(key.toLowerCase()))),
@@ -556,9 +551,13 @@ function ReportContent() {
 
   const visibleSections = sections
 
-  function reportExportRows(includeEmpty = false): ReportExportDataset[] {
+  function reportExportRows(includeEmpty = false, includeTop10StudentRows = false): ReportExportDataset[] {
     return sections.flatMap<ReportExportDataset>((section) => {
-      const sourceRows = exportRows(displayResults[section.reportId])
+      const sourceRows = section.reportId === 'contest_qualifiers_top10'
+        ? exportRows(includeTop10StudentRows
+          ? results.contest_qualifiers_top10_rows
+          : displayResults[section.reportId])
+        : exportRows(displayResults[section.reportId])
       const rows = section.reportId === 'overview_summary' && sourceRows.length
         ? [Object.assign({}, ...sourceRows)]
         : sourceRows
@@ -568,12 +567,16 @@ function ReportContent() {
       if (!includeEmpty) return []
       const message = errors[section.reportId]
         ? `Không tải được dữ liệu: ${errors[section.reportId]}`
-        : 'Báo cáo không trả về dữ liệu trong kỳ đã chọn.'
+        : section.reportId === 'contest_qualifiers_top10'
+          ? 'Chưa có dữ liệu vòng loại để tính tỷ lệ Top 10%.'
+          : 'Báo cáo không trả về dữ liệu trong kỳ đã chọn.'
       return [{
         reportId: section.reportId,
         title: section.title,
         rows: [],
-        emptyColumns: emptyReportColumns[section.reportId] ?? ['trang_thai_du_lieu'],
+        emptyColumns: section.reportId === 'contest_qualifiers_top10' && !includeTop10StudentRows
+          ? ['tinh_thanh', 'so_luot_du_thi_vongloai', 'so_luot_top10_vao_chung_ket', 'ty_le_top10_pct']
+          : emptyReportColumns[section.reportId] ?? ['trang_thai_du_lieu'],
         emptyMessage: message,
         visualization: section.visualization,
         hasData: false,
@@ -597,7 +600,7 @@ function ReportContent() {
 
   async function exportReport(format: ExportFormat, reportIds?: readonly string[]) {
     setExportError('')
-    const datasets = reportExportRows(true)
+    const datasets = reportExportRows(true, format === 'excel')
       .filter((dataset) => !reportIds || reportIds.includes(dataset.reportId))
     if (!datasets.length) return
 
@@ -1264,13 +1267,17 @@ function ReportContent() {
       setErrors({})
       setResults((current) => {
         const next = { ...current }
-        for (const section of sections) delete next[section.reportId]
+        for (const section of sections) {
+          delete next[section.reportId]
+          if (section.reportId === 'contest_qualifiers_top10') delete next.contest_qualifiers_top10_rows
+        }
         return next
       })
       try {
         const responses = await Promise.all(
           sections.filter((section) => section.reportId !== 'student_status').map(async (section) => {
             let response: { data: unknown; error: { message: string } | null }
+          let extraData: unknown
             switch (section.reportId) {
               case 'contest_certificates':
                 response = await supabase.rpc('fn_bao_cao_du_lieu', {
@@ -1311,11 +1318,18 @@ function ReportContent() {
                 }
                 break
               }
-              case 'contest_qualifiers_top10':
-                response = await supabase.rpc('fn_bao_cao_ds_top10_vongloai', {
-                  p_ky: period,
-                })
+              case 'contest_qualifiers_top10': {
+                const [provinceRates, qualifiers] = await Promise.all([
+                  supabase.rpc('fn_bao_cao_tyle_top10_theo_tinh', { p_ky: period }),
+                  supabase.rpc('fn_bao_cao_ds_top10_vongloai', { p_ky: period }),
+                ])
+                response = {
+                  data: provinceRates.error ? null : provinceRates.data,
+                  error: provinceRates.error ?? qualifiers.error,
+                }
+                extraData = qualifiers.data
                 break
+              }
               case 'support_top_questions':
                 response = await supabase.rpc('fn_report_top_faq_questions', { p_ky: period, p_limit: 50 })
                 break
@@ -1346,7 +1360,7 @@ function ReportContent() {
                   p_ky: period,
                 })
             }
-            return { reportId: section.reportId, data: response.data, error: response.error }
+            return { reportId: section.reportId, data: response.data, error: response.error, extraData }
           }),
         )
         if (!active) return
@@ -1363,6 +1377,9 @@ function ReportContent() {
                   ? row.buoc.replace(/\s*\(thanh toán thành công\)\s*$/i, '')
                   : row.buoc,
               }))
+          } else if (response.reportId === 'contest_qualifiers_top10') {
+            nextResults[response.reportId] = response.data
+            nextResults.contest_qualifiers_top10_rows = response.extraData
           } else nextResults[response.reportId] = response.data
         }
         if (nextErrors.student_summary) nextErrors.student_status = nextErrors.student_summary
@@ -1496,28 +1513,8 @@ function ReportContent() {
 
       <div className="space-y-5">
         {visibleSections.map((section) => {
-          const content = section.reportId === 'contest_qualifiers_top10'
-            ? (
-              <div className="space-y-5">
-                {[
-                  { key: 'BANG_A', label: 'Bảng A' },
-                  { key: 'BANG_B', label: 'Bảng B' },
-                ].map((bracket) => (
-                  <DataPanel
-                    key={bracket.key}
-                    title={`${section.title} - ${bracket.label}`}
-                    description={`Danh sách tất cả thí sinh đủ điều kiện vào chung kết, sắp xếp theo tỉnh/thành trong ${bracket.label}.`}
-                    data={exportRows(displayResults[section.reportId]).filter((row) =>
-                      String(row.bang_dau ?? '').trim().toUpperCase() === bracket.key,
-                    )}
-                    loading={loading && !displayResults[section.reportId]}
-                    error={errors[section.reportId]}
-                    visualization="table"
-                  />
-                ))}
-              </div>
-            )
-            : (
+          return (
+            <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
               <DataPanel
                 title={section.title}
                 description={section.reportId === 'overview_registration_trend'
@@ -1537,17 +1534,16 @@ function ReportContent() {
                 ) : undefined}
                 visualization={section.visualization}
                 compactTable={section.reportId === 'lead_pipeline'}
-                chartValueField={section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
-                chartLabelField={section.reportId === 'overview_progress'
-                  ? 'ten_kpi'
-                  : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}
+                chartValueField={section.reportId === 'contest_qualifiers_top10'
+                  ? 'ty_le_top10_pct'
+                  : section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
+                chartLabelField={section.reportId === 'contest_qualifiers_top10'
+                  ? 'tinh_thanh'
+                  : section.reportId === 'overview_progress'
+                    ? 'ten_kpi'
+                    : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}
                 chartSecondaryLabelField={section.reportId === 'student_school_scores' ? 'bang_dau' : undefined}
               />
-            )
-
-          return (
-            <div id={`report-${section.reportId}`} key={`${period}-${section.reportId}`} className="w-full scroll-mt-24">
-              {content}
             </div>
           )
         })}

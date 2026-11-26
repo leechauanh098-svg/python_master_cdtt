@@ -55,7 +55,7 @@ function money(value: unknown, digits = 1): string {
   const amount = numberValue(value)
   if (amount == null) return '—'
   if (Math.abs(amount) >= 1_000_000) {
-    return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(amount / 1_000_000)} tr`
+    return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(amount / 1_000_000)} triệu`
   }
   if (Math.abs(amount) >= 1_000) {
     return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(amount / 1_000)} nghìn`
@@ -283,7 +283,6 @@ function dashboardMetrics(
     kpis = [
       { label: 'Tổng doanh thu', value: money(revenue.tong_doanh_thu) },
       { label: 'Giao dịch thành công', value: count(revenue.giao_dich_thanh_cong) },
-      { label: 'Giá trị trung bình', value: money(revenue.gia_tri_trung_binh, 0) },
       { label: 'Đang đối soát', value: count(revenue.dang_doi_soat) },
     ]
     const trendRows = rowsFor(datasets, 'revenue_trend')

@@ -1533,18 +1533,26 @@ function ReportContent() {
                 ) : undefined}
                 visualization={section.visualization}
                 compactTable={section.reportId === 'lead_pipeline'}
-                chartValueField={section.reportId === 'certificate_pass_rate_by_province'
-                  ? 'ty_le_dat_chung_chi_pct'
-                  : section.reportId === 'certificate_fail_rate_by_province'
-                    ? 'ty_le_khong_dat_chung_chi_pct'
-                    : section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined}
-                chartLabelField={section.reportId === 'certificate_pass_rate_by_province'
-                  ? 'tinh_thanh'
-                  : section.reportId === 'certificate_fail_rate_by_province'
-                    ? 'tinh_thanh'
-                  : section.reportId === 'overview_progress'
-                    ? 'ten_kpi'
-                    : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined}
+                chartValueField={
+                  section.reportId === 'support_faq_categories'
+                    ? 'so_cau_hoi'
+                    : section.reportId === 'certificate_pass_rate_by_province'
+                      ? 'ty_le_dat_chung_chi_pct'
+                      : section.reportId === 'certificate_fail_rate_by_province'
+                        ? 'ty_le_khong_dat_chung_chi_pct'
+                        : section.reportId === 'overview_progress' ? 'hoan_thanh_pct' : undefined
+                }
+                chartLabelField={
+                  section.reportId === 'support_faq_categories'
+                    ? 'ten_danh_muc'
+                    : section.reportId === 'certificate_pass_rate_by_province'
+                      ? 'tinh_thanh'
+                      : section.reportId === 'certificate_fail_rate_by_province'
+                        ? 'tinh_thanh'
+                        : section.reportId === 'overview_progress'
+                          ? 'ten_kpi'
+                          : section.reportId === 'student_school_scores' ? 'truong_hoc' : undefined
+                }
                 chartSecondaryLabelField={section.reportId === 'student_school_scores' ? 'bang_dau' : undefined}
               />
             </div>

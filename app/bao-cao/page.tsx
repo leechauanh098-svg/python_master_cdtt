@@ -603,16 +603,15 @@ function ReportContent() {
     })
   }
 
-  function downloadFile(blob: Blob, extension: string, reportIds?: readonly string[]) {
+  function downloadFile(blob: Blob, extension: string, reportIds?: readonly string[], singleReportTitle?: string) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     const reportName = reportIds?.length === 1
-      ? reportIds[0] === 'support_top_questions'
-        ? '50-cau-hoi-thuong-gap'
-        : reportIds[0]
-      : currentReportTab.toLocaleLowerCase('vi').replaceAll(' ', '-')
-    link.download = `bao-cao-${period}-${reportName}.${extension}`
+      ? singleReportTitle ?? currentReportTab
+      : currentReportTab
+    const safeReportName = reportName.replace(/[<>:"\/\\|?*\u0000-\u001F]/g, '_').trim()
+    link.download = `Báo cáo ${safeReportName} ${period}.${extension}`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -622,6 +621,9 @@ function ReportContent() {
     const datasets = reportExportRows(true, format === 'excel')
       .filter((dataset) => !reportIds || reportIds.includes(dataset.reportId))
     if (!datasets.length) return
+    const singleReportTitle = reportIds?.length === 1
+      ? datasets.find((dataset) => dataset.reportId === reportIds[0])?.title
+      : undefined
 
     try {
     if (format === 'pdf') {
@@ -727,7 +729,7 @@ function ReportContent() {
         }
         lines.push('')
       }
-      downloadFile(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }), 'csv', reportIds)
+      downloadFile(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }), 'csv', reportIds, singleReportTitle)
       return
     }
 
@@ -1135,7 +1137,7 @@ function ReportContent() {
       })
       const workbookOutput = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true }) as ArrayBuffer
       const output = addExcelCharts(workbookOutput, chartSources)
-      downloadFile(new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx', reportIds)
+      downloadFile(new Blob([output], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx', reportIds, singleReportTitle)
       return
     }
 
@@ -1256,7 +1258,7 @@ function ReportContent() {
       }],
     })
     const wordFile = await Packer.toBlob(document)
-    downloadFile(wordFile, 'docx', reportIds)
+    downloadFile(wordFile, 'docx', reportIds, singleReportTitle)
   } catch (error) {
     setExportError(error instanceof Error ? error.message : String(error))
   }

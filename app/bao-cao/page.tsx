@@ -544,6 +544,9 @@ function ReportContent() {
   const displayResults: Record<string, unknown> = useMemo(() => ({
     ...results,
     overview_summary: withoutOverviewMetrics(results.overview_summary),
+    revenue_summary: exportRows(results.revenue_summary).map((row) =>
+      Object.fromEntries(Object.entries(row).filter(([key]) => key.toLowerCase() !== 'gia_tri_trung_binh')),
+    ),
     overview_registration_trend: peakRegistrationWindow(results.overview_registration_trend, period),
     student_status: studentPaymentStatusRows(results.student_summary),
     student_school_scores: exportRows(results.student_school_scores).map((row) =>
